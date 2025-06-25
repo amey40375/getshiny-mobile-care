@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Clock, CheckCircle, XCircle, Phone } from "lucide-react";
+import { ArrowLeft, Clock, CheckCircle, XCircle, Phone, MessageCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
 import { useAuth } from "@/hooks/useAuth";
+import LiveChat from "@/components/LiveChat";
 
 interface MitraDashboardProps {
   onBackToUser: () => void;
@@ -19,6 +20,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
   const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [showChat, setShowChat] = useState(false);
 
   // Auto-refresh every 15 seconds
   useEffect(() => {
@@ -147,11 +149,21 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
               <ArrowLeft className="w-4 h-4" />
               Kembali ke User
             </Button>
-            <div className="text-right">
-              <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                Aktif
-              </Badge>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setShowChat(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Chat Admin
+              </Button>
+              <div className="text-right">
+                <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
+                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                  Aktif
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -257,6 +269,15 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
           )}
         </div>
       </div>
+
+      {/* Live Chat Component */}
+      <LiveChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        currentUserType="mitra"
+        receiverId="admin-id-placeholder" // This should be replaced with actual admin ID
+        receiverType="admin"
+      />
     </div>
   );
 };

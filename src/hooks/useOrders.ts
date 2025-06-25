@@ -62,16 +62,20 @@ export const useOrders = (mitraOnly = false) => {
         throw new Error('Data pesanan tidak lengkap');
       }
 
+      // Clean phone number format
+      const cleanWhatsApp = orderData.customer_whatsapp.replace(/\D/g, '');
+      
       const insertData = {
-        customer_name: orderData.customer_name,
-        customer_address: orderData.customer_address,
-        customer_whatsapp: orderData.customer_whatsapp,
+        customer_name: orderData.customer_name.trim(),
+        customer_address: orderData.customer_address.trim(),
+        customer_whatsapp: cleanWhatsApp,
         service_type: orderData.service_type,
         status: 'NEW'
       };
 
       console.log('Inserting order data:', insertData);
 
+      // Use the public.orders table directly with the fixed RLS policies
       const { data, error } = await supabase
         .from('orders')
         .insert([insertData])
@@ -102,7 +106,7 @@ export const useOrders = (mitraOnly = false) => {
       console.error('Error in createOrder:', error);
       toast({
         title: "Error",
-        description: "Terjadi kesalahan saat membuat pesanan",
+        description: error instanceof Error ? error.message : "Terjadi kesalahan saat membuat pesanan",
         variant: "destructive"
       });
       return null;
@@ -139,6 +143,12 @@ export const useOrders = (mitraOnly = false) => {
 
       console.log('Order status updated successfully');
       await fetchOrders();
+      
+      toast({
+        title: "Status Updated",
+        description: `Status pesanan berhasil diubah ke ${status}`,
+      });
+      
       return true;
     } catch (error) {
       console.error('Error in updateOrderStatus:', error);

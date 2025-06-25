@@ -27,6 +27,7 @@ const Index = () => {
     service: '',
     whatsapp: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { toast } = useToast();
   const { services, loading: servicesLoading } = useServices();
@@ -35,40 +36,88 @@ const Index = () => {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validasi form
-    if (!formData.name || !formData.address || !formData.service || !formData.whatsapp) {
-      toast({
-        title: "Error",
-        description: "Mohon lengkapi semua field yang diperlukan",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    // Validasi nomor WhatsApp
-    const whatsappRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
-    if (!whatsappRegex.test(formData.whatsapp)) {
-      toast({
-        title: "Error",
-        description: "Format nomor WhatsApp tidak valid. Contoh: 081234567890",
-        variant: "destructive"
-      });
-      return;
-    }
+    if (isSubmitting) return;
     
-    console.log('Attempting to create order with data:', formData);
+    setIsSubmitting(true);
     
-    const orderData = {
-      customer_name: formData.name.trim(),
-      customer_address: formData.address.trim(),
-      customer_whatsapp: formData.whatsapp.trim(),
-      service_type: formData.service
-    };
-
     try {
+      // Validasi form
+      if (!formData.name.trim()) {
+        toast({
+          title: "Error",
+          description: "Nama lengkap harus diisi",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!formData.address.trim()) {
+        toast({
+          title: "Error",
+          description: "Alamat lengkap harus diisi",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!formData.service) {
+        toast({
+          title: "Error",
+          description: "Pilih jenis layanan",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!formData.whatsapp.trim()) {
+        toast({
+          title: "Error",
+          description: "Nomor WhatsApp harus diisi",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Validasi nomor WhatsApp
+      const cleanWhatsApp = formData.whatsapp.replace(/\D/g, '');
+      if (cleanWhatsApp.length < 10 || cleanWhatsApp.length > 15) {
+        toast({
+          title: "Error",
+          description: "Format nomor WhatsApp tidak valid. Contoh: 081234567890",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Pastikan nomor dimulai dengan 8 jika sudah dibersihkan dari awalan +62 atau 62
+      let finalWhatsApp = cleanWhatsApp;
+      if (finalWhatsApp.startsWith('62')) {
+        finalWhatsApp = finalWhatsApp.substring(2);
+      }
+      if (!finalWhatsApp.startsWith('8')) {
+        toast({
+          title: "Error",
+          description: "Nomor WhatsApp harus dimulai dengan 08. Contoh: 081234567890",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('Attempting to create order with data:', formData);
+      
+      const orderData = {
+        customer_name: formData.name.trim(),
+        customer_address: formData.address.trim(),
+        customer_whatsapp: finalWhatsApp,
+        service_type: formData.service
+      };
+
       const result = await createOrder(orderData);
+      
       if (result) {
+        // Reset form after successful submission
         setFormData({ name: '', address: '', service: '', whatsapp: '' });
+        
         toast({
           title: "Pesanan Berhasil!",
           description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
@@ -81,6 +130,8 @@ const Index = () => {
         description: "Gagal membuat pesanan. Silakan coba lagi.",
         variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -195,6 +246,7 @@ const Index = () => {
                     placeholder="Masukkan nama lengkap Anda"
                     className="mt-1"
                     required
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -208,12 +260,17 @@ const Index = () => {
                     className="mt-1"
                     rows={3}
                     required
+                    disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
                   <Label htmlFor="service">Pilih Layanan *</Label>
-                  <Select value={formData.service} onValueChange={(value) => setFormData({ ...formData, service: value })}>
+                  <Select 
+                    value={formData.service} 
+                    onValueChange={(value) => setFormData({ ...formData, service: value })}
+                    disabled={isSubmitting}
+                  >
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Pilih jenis layanan" />
                     </SelectTrigger>
@@ -240,18 +297,19 @@ const Index = () => {
                     placeholder="081234567890"
                     className="mt-1"
                     required
+                    disabled={isSubmitting}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Format: 08xxxxxxxxx atau +628xxxxxxxxx
+                    Format: 08xxxxxxxxx
                   </p>
                 </div>
 
                 <Button 
                   type="submit" 
                   className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                  disabled={!formData.name || !formData.address || !formData.service || !formData.whatsapp}
+                  disabled={isSubmitting || !formData.name || !formData.address || !formData.service || !formData.whatsapp}
                 >
-                  Pesan Sekarang
+                  {isSubmitting ? "Memproses..." : "Pesan Sekarang"}
                 </Button>
               </form>
             </CardContent>
