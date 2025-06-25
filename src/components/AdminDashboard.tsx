@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,7 +75,7 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
     const success = await updateOrderStatus(orderId, 'DIPROSES', mitraId);
     
     if (success) {
-      const assignedMitra = mitraApplications.find(m => m.user_id === mitraId);
+      const assignedMitra = acceptedMitra.find(m => m.user_id === mitraId);
       toast({
         title: "Pesanan Assigned",
         description: `Pesanan telah diassign ke ${assignedMitra?.name || 'Mitra'}`,
@@ -332,23 +331,14 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                             
                             {/* Action Buttons */}
                             <div className="flex gap-3">
-                              {order.status === 'NEW' && (
-                                <>
-                                  <Button 
-                                    onClick={() => handleOrderAction(order.id, 'accept')}
-                                    className="bg-green-500 hover:bg-green-600"
-                                  >
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Terima
-                                  </Button>
-                                  <Button 
-                                    onClick={() => handleOrderAction(order.id, 'cancel')}
-                                    variant="destructive"
-                                  >
-                                    <XCircle className="w-4 h-4 mr-2" />
-                                    Tolak
-                                  </Button>
-                                </>
+                              {order.status === 'NEW' && !order.mitra_id && (
+                                <Button 
+                                  onClick={() => handleOrderAction(order.id, 'cancel')}
+                                  variant="destructive"
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Tolak Pesanan
+                                </Button>
                               )}
                               
                               {order.status === 'DIPROSES' && (

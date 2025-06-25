@@ -92,9 +92,8 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         return false;
       }
 
-      // For mitra sending to admin or admin sending to mitra
-      // Use a placeholder receiver_id that will be handled by admin
-      const actualReceiverId = currentUserType === 'mitra' ? user.id : user.id;
+      // Use admin-system or mitra-system as placeholder receiver_id
+      const actualReceiverId = receiverType === 'admin' ? 'admin-system' : 'mitra-system';
 
       const messageData = {
         sender_id: user.id,

@@ -31,8 +31,8 @@ export const useOrders = (mitraOnly = false) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           console.log('Fetching orders for mitra:', user.id);
-          // For mitra: show NEW orders (available to take) OR orders assigned to this mitra
-          query = query.or(`and(status.eq.NEW,mitra_id.is.null),mitra_id.eq.${user.id}`);
+          // For mitra: show NEW orders without assignment OR orders assigned to this mitra
+          query = query.or(`and(status.eq.NEW,mitra_id.is.null),and(mitra_id.eq.${user.id},status.eq.DIPROSES)`);
         }
       }
       
