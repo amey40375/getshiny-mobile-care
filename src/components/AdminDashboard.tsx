@@ -1,74 +1,45 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3 } from "lucide-react";
+import { useMitraProfile } from "@/hooks/useMitraProfile";
+import { useOrders } from "@/hooks/useOrders";
 
 interface AdminDashboardProps {
   onBackToUser: () => void;
 }
 
 const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
-  const [mitraApplications, setMitraApplications] = useState([
-    {
-      id: 1,
-      name: 'Ahmad Wijaya',
-      email: 'ahmad@email.com',
-      whatsapp: '08123456789',
-      address: 'Jakarta Selatan',
-      workLocation: 'Jakarta Selatan, Depok',
-      status: 'pending',
-      appliedAt: '2024-01-15 09:00'
-    },
-    {
-      id: 2,
-      name: 'Rina Sari',
-      email: 'rina@email.com',
-      whatsapp: '08987654321',
-      address: 'Jakarta Pusat',
-      workLocation: 'Jakarta Pusat, Jakarta Utara',
-      status: 'pending',
-      appliedAt: '2024-01-15 10:30'
-    }
-  ]);
-
-  const [orders, setOrders] = useState([
-    {
-      id: 1,
-      customerName: 'Budi Santoso',
-      service: 'Cleaning',
-      status: 'NEW',
-      mitraAssigned: null,
-      createdAt: '2024-01-15 10:30'
-    },
-    {
-      id: 2,
-      customerName: 'Siti Nurhaliza',
-      service: 'Laundry',
-      status: 'DIPROSES',
-      mitraAssigned: 'Ahmad Wijaya',
-      createdAt: '2024-01-15 11:15'
-    }
-  ]);
-
+  const [mitraApplications, setMitraApplications] = useState<any[]>([]);
+  const { getAllProfiles, updateProfileStatus } = useMitraProfile();
+  const { orders } = useOrders();
   const { toast } = useToast();
 
-  const handleMitraStatus = (applicationId: number, newStatus: 'accepted' | 'rejected' | 'pending') => {
-    setMitraApplications(prev => 
-      prev.map(app => 
-        app.id === applicationId 
-          ? { ...app, status: newStatus }
-          : app
-      )
-    );
+  useEffect(() => {
+    fetchMitraApplications();
+  }, []);
 
-    toast({
-      title: "Status Updated",
-      description: `Aplikasi mitra telah di-${newStatus === 'accepted' ? 'terima' : newStatus === 'rejected' ? 'tolak' : 'proses'}`,
-    });
+  const fetchMitraApplications = async () => {
+    const profiles = await getAllProfiles();
+    setMitraApplications(profiles);
+  };
+
+  const handleMitraStatus = async (applicationId: string, newStatus: 'accepted' | 'rejected' | 'pending') => {
+    const success = await updateProfileStatus(applicationId, newStatus);
+    
+    if (success) {
+      toast({
+        title: "Status Updated",
+        description: `Aplikasi mitra telah di-${newStatus === 'accepted' ? 'terima' : newStatus === 'rejected' ? 'tolak' : 'proses'}`,
+      });
+      
+      // Refresh data
+      fetchMitraApplications();
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -78,6 +49,8 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       case 'rejected': return 'bg-red-100 text-red-800';
       case 'NEW': return 'bg-blue-100 text-blue-800';
       case 'DIPROSES': return 'bg-orange-100 text-orange-800';
+      case 'SELESAI': return 'bg-green-100 text-green-800';
+      case 'DIBATALKAN': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -115,7 +88,9 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                   <Users className="w-8 h-8 text-blue-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Mitra</p>
-                    <p className="text-2xl font-bold text-gray-900">12</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {mitraApplications.filter(app => app.status === 'accepted').length}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -127,7 +102,7 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                   <ShoppingCart className="w-8 h-8 text-green-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Total Pesanan</p>
-                    <p className="text-2xl font-bold text-gray-900">48</p>
+                    <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -139,7 +114,9 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                   <Settings className="w-8 h-8 text-purple-600" />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600">Pending Review</p>
-                    <p className="text-2xl font-bold text-gray-900">{mitraApplications.filter(app => app.status === 'pending').length}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {mitraApplications.filter(app => app.status === 'pending').length}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -150,8 +127,10 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                 <div className="flex items-center">
                   <BarChart3 className="w-8 h-8 text-orange-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Revenue</p>
-                    <p className="text-2xl font-bold text-gray-900">Rp 2.4M</p>
+                    <p className="text-sm font-medium text-gray-600">Pesanan Aktif</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {orders.filter(order => order.status === 'DIPROSES').length}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -198,11 +177,11 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Lokasi Kerja:</p>
-                              <p>{application.workLocation}</p>
+                              <p>{application.work_location}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Tanggal Apply:</p>
-                              <p>{application.appliedAt}</p>
+                              <p>{new Date(application.created_at).toLocaleDateString('id-ID')}</p>
                             </div>
                           </div>
 
@@ -220,17 +199,17 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                               >
                                 Tolak
                               </Button>
-                              <Button 
-                                onClick={() => handleMitraStatus(application.id, 'pending')}
-                                variant="outline"
-                              >
-                                Proses
-                              </Button>
                             </div>
                           )}
                         </CardContent>
                       </Card>
                     ))}
+
+                    {mitraApplications.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        Belum ada aplikasi mitra
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -249,27 +228,37 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                         <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-4">
                             <div>
-                              <h3 className="font-semibold text-lg">{order.customerName}</h3>
-                              <p className="text-gray-600">Layanan: {order.service}</p>
+                              <h3 className="font-semibold text-lg">{order.customer_name}</h3>
+                              <p className="text-gray-600">Layanan: {order.service_type}</p>
                             </div>
                             <Badge className={getStatusColor(order.status)}>
                               {order.status}
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
-                              <p className="text-sm font-medium text-gray-600">Mitra Assigned:</p>
-                              <p>{order.mitraAssigned || 'Belum ditugaskan'}</p>
+                              <p className="text-sm font-medium text-gray-600">Alamat:</p>
+                              <p>{order.customer_address}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-600">WhatsApp:</p>
+                              <p>{order.customer_whatsapp}</p>
                             </div>
                             <div>
                               <p className="text-sm font-medium text-gray-600">Waktu Pesan:</p>
-                              <p>{order.createdAt}</p>
+                              <p>{new Date(order.created_at).toLocaleString('id-ID')}</p>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
+
+                    {orders.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        Belum ada pesanan
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -317,15 +306,25 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                     <div className="space-y-4">
                       <div className="p-3 bg-blue-50 rounded">
                         <p className="font-medium text-blue-800">Pesanan Hari Ini</p>
-                        <p className="text-2xl font-bold text-blue-900">8</p>
+                        <p className="text-2xl font-bold text-blue-900">
+                          {orders.filter(order => {
+                            const today = new Date().toDateString();
+                            const orderDate = new Date(order.created_at).toDateString();
+                            return today === orderDate;
+                          }).length}
+                        </p>
                       </div>
                       <div className="p-3 bg-green-50 rounded">
-                        <p className="font-medium text-green-800">Revenue Bulan Ini</p>
-                        <p className="text-2xl font-bold text-green-900">Rp 2.4M</p>
+                        <p className="font-medium text-green-800">Pesanan Selesai</p>
+                        <p className="text-2xl font-bold text-green-900">
+                          {orders.filter(order => order.status === 'SELESAI').length}
+                        </p>
                       </div>
                       <div className="p-3 bg-purple-50 rounded">
                         <p className="font-medium text-purple-800">Mitra Aktif</p>
-                        <p className="text-2xl font-bold text-purple-900">12</p>
+                        <p className="text-2xl font-bold text-purple-900">
+                          {mitraApplications.filter(app => app.status === 'accepted').length}
+                        </p>
                       </div>
                     </div>
                   </CardContent>

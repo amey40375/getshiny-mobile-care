@@ -6,58 +6,44 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Phone } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useMitraProfile } from "@/hooks/useMitraProfile";
+import { useOrders } from "@/hooks/useOrders";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MitraDashboardProps {
   onBackToUser: () => void;
 }
 
 const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
-  const [mitraStatus, setMitraStatus] = useState<'pending' | 'accepted' | 'rejected'>('accepted'); // Demo: accepted
-  const [orders, setOrders] = useState([
-    {
-      id: 1,
-      customerName: 'Budi Santoso',
-      address: 'Jl. Sudirman No. 123, Jakarta Selatan',
-      service: 'Cleaning',
-      whatsapp: '08123456789',
-      status: 'NEW',
-      createdAt: '2024-01-15 10:30'
-    },
-    {
-      id: 2,
-      customerName: 'Siti Nurhaliza',
-      address: 'Jl. Gatot Subroto No. 456, Jakarta Pusat',
-      service: 'Laundry',
-      whatsapp: '08987654321',
-      status: 'NEW',
-      createdAt: '2024-01-15 11:15'
-    }
-  ]);
+  const { profile, loading: profileLoading } = useMitraProfile();
+  const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(true);
+  const { user } = useAuth();
   const { toast } = useToast();
 
   // Auto-refresh every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       console.log('Auto-refreshing mitra dashboard...');
-      // In real app, this would fetch new orders from Supabase
+      // Orders will auto-refresh due to real-time subscription
     }, 15000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const handleOrderAction = (orderId: number, action: 'accept' | 'reject') => {
-    setOrders(orders.map(order => 
-      order.id === orderId 
-        ? { ...order, status: action === 'accept' ? 'DIPROSES' : 'DITOLAK' }
-        : order
-    ));
-
-    toast({
-      title: action === 'accept' ? "Pesanan Diterima!" : "Pesanan Ditolak",
-      description: action === 'accept' 
-        ? "Silakan hubungi pelanggan segera" 
-        : "Pesanan telah ditolak",
-    });
+  const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
+    const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
+    const mitraId = action === 'accept' ? user?.id : undefined;
+    
+    const success = await updateOrderStatus(orderId, newStatus, mitraId);
+    
+    if (success) {
+      toast({
+        title: action === 'accept' ? "Pesanan Diterima!" : "Pesanan Ditolak",
+        description: action === 'accept' 
+          ? "Silakan hubungi pelanggan segera" 
+          : "Pesanan telah ditolak",
+      });
+    }
   };
 
   const openWhatsApp = (number: string, message: string) => {
@@ -65,8 +51,19 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
     window.open(`https://wa.me/${number}?text=${encodedMessage}`, '_blank');
   };
 
+  if (profileLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Status pending - show waiting message
-  if (mitraStatus === 'pending') {
+  if (!profile || profile.status === 'pending') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white p-4">
         <div className="max-w-md mx-auto">
@@ -101,7 +98,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
   }
 
   // Status rejected - show rejection message
-  if (mitraStatus === 'rejected') {
+  if (profile.status === 'rejected') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-white p-4">
         <div className="max-w-md mx-auto">
@@ -171,7 +168,14 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
 
           <h2 className="text-2xl font-bold text-gray-800 mb-6">Pesanan Baru</h2>
           
-          {orders.length === 0 ? (
+          {ordersLoading ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p className="text-gray-500">Memuat pesanan...</p>
+              </CardContent>
+            </Card>
+          ) : orders.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <p className="text-gray-500">Belum ada pesanan baru</p>
@@ -183,7 +187,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                 <Card key={order.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-lg">{order.customerName}</CardTitle>
+                      <CardTitle className="text-lg">{order.customer_name}</CardTitle>
                       <Badge 
                         variant={order.status === 'NEW' ? 'default' : 
                                 order.status === 'DIPROSES' ? 'secondary' : 'destructive'}
@@ -196,22 +200,22 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                     <div className="space-y-3">
                       <div>
                         <p className="text-sm font-medium text-gray-600">Alamat:</p>
-                        <p className="text-gray-800">{order.address}</p>
+                        <p className="text-gray-800">{order.customer_address}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-600">Layanan:</p>
-                        <p className="text-gray-800">{order.service}</p>
+                        <p className="text-gray-800">{order.service_type}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-600">WhatsApp:</p>
-                        <p className="text-gray-800">{order.whatsapp}</p>
+                        <p className="text-gray-800">{order.customer_whatsapp}</p>
                       </div>
                       
                       <div>
                         <p className="text-sm font-medium text-gray-600">Waktu Pesan:</p>
-                        <p className="text-gray-800">{order.createdAt}</p>
+                        <p className="text-gray-800">{new Date(order.created_at).toLocaleString('id-ID')}</p>
                       </div>
 
                       {order.status === 'NEW' && (
@@ -237,7 +241,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                       {order.status === 'DIPROSES' && (
                         <div className="pt-4">
                           <Button 
-                            onClick={() => openWhatsApp(order.whatsapp, `Halo ${order.customerName}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service} Anda. Kapan waktu yang tepat untuk kami datang?`)}
+                            onClick={() => openWhatsApp(order.customer_whatsapp, `Halo ${order.customer_name}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service_type} Anda. Kapan waktu yang tepat untuk kami datang?`)}
                             className="w-full bg-green-500 hover:bg-green-600"
                           >
                             <Phone className="w-4 h-4 mr-2" />

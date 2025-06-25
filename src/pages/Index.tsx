@@ -12,6 +12,8 @@ import LoginModal from "@/components/LoginModal";
 import MitraRegisterModal from "@/components/MitraRegisterModal";
 import MitraDashboard from "@/components/MitraDashboard";
 import AdminDashboard from "@/components/AdminDashboard";
+import { useServices } from "@/hooks/useServices";
+import { useOrders } from "@/hooks/useOrders";
 
 const Index = () => {
   const [currentRole, setCurrentRole] = useState<'user' | 'mitra' | 'admin'>('user');
@@ -23,15 +25,12 @@ const Index = () => {
     service: '',
     whatsapp: ''
   });
+  
   const { toast } = useToast();
+  const { services, loading: servicesLoading } = useServices();
+  const { createOrder } = useOrders();
 
-  const services = [
-    { value: 'cleaning', label: 'Cleaning - Pembersihan Rumah', price: 'Rp 150.000' },
-    { value: 'laundry', label: 'Laundry - Cuci & Setrika', price: 'Rp 25.000/kg' },
-    { value: 'beberes', label: 'Beberes Rumah - Rapih & Bersih', price: 'Rp 200.000' }
-  ];
-
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.address || !formData.service || !formData.whatsapp) {
       toast({
@@ -42,12 +41,17 @@ const Index = () => {
       return;
     }
     
-    toast({
-      title: "Pesanan Berhasil!",
-      description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
-    });
-    
-    setFormData({ name: '', address: '', service: '', whatsapp: '' });
+    const orderData = {
+      customer_name: formData.name,
+      customer_address: formData.address,
+      customer_whatsapp: formData.whatsapp,
+      service_type: formData.service
+    };
+
+    const result = await createOrder(orderData);
+    if (result) {
+      setFormData({ name: '', address: '', service: '', whatsapp: '' });
+    }
   };
 
   const handleRoleSwitch = (role: 'user' | 'mitra' | 'admin') => {
@@ -122,24 +126,26 @@ const Index = () => {
           </div>
 
           {/* Service Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {services.map((service, index) => (
-              <Card key={index} className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200">
-                <CardContent className="p-4 text-center">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
-                    <Home className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-800 mb-1">
-                    {service.label.split(' - ')[0]}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {service.label.split(' - ')[1]}
-                  </p>
-                  <p className="text-blue-600 font-semibold">{service.price}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {!servicesLoading && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {services.map((service, index) => (
+                <Card key={service.id} className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200">
+                  <CardContent className="p-4 text-center">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
+                      <Home className="w-6 h-6 text-blue-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-800 mb-1">
+                      {service.service_name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {service.description}
+                    </p>
+                    <p className="text-blue-600 font-semibold">{service.price}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Order Form */}
           <Card className="shadow-lg">
@@ -182,9 +188,9 @@ const Index = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {services.map((service) => (
-                        <SelectItem key={service.value} value={service.value}>
+                        <SelectItem key={service.service_key} value={service.service_key}>
                           <div className="flex flex-col">
-                            <span>{service.label}</span>
+                            <span>{service.service_name} - {service.description}</span>
                             <span className="text-sm text-blue-600">{service.price}</span>
                           </div>
                         </SelectItem>

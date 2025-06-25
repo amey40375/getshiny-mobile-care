@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useMitraProfile } from "@/hooks/useMitraProfile";
+import { useAuth } from "@/hooks/useAuth";
 
 interface MitraRegisterModalProps {
   isOpen: boolean;
@@ -19,15 +21,17 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
     address: '',
     whatsapp: '',
     email: '',
-    workLocation: '',
+    work_location: '',
     ktp: null as File | null
   });
   const { toast } = useToast();
+  const { createProfile } = useMitraProfile();
+  const { signUp } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.address || !formData.whatsapp || !formData.email || !formData.workLocation) {
+    if (!formData.name || !formData.address || !formData.whatsapp || !formData.email || !formData.work_location) {
       toast({
         title: "Error",
         description: "Mohon lengkapi semua field yang diperlukan",
@@ -36,9 +40,26 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
       return;
     }
 
-    // In real app, this would send data to Supabase
-    console.log('Mitra registration data:', formData);
-    onSuccess();
+    // First create auth account
+    const { error: authError } = await signUp(formData.email, 'temporaryPassword123');
+    if (authError) {
+      return;
+    }
+
+    // Then create mitra profile
+    const profileData = {
+      name: formData.name,
+      address: formData.address,
+      whatsapp: formData.whatsapp,
+      email: formData.email,
+      work_location: formData.work_location,
+      ktp_url: formData.ktp ? formData.ktp.name : undefined
+    };
+
+    const result = await createProfile(profileData);
+    if (result) {
+      onSuccess();
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,8 +129,8 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
             <Input
               id="workLocation"
               type="text"
-              value={formData.workLocation}
-              onChange={(e) => setFormData({ ...formData, workLocation: e.target.value })}
+              value={formData.work_location}
+              onChange={(e) => setFormData({ ...formData, work_location: e.target.value })}
               placeholder="Contoh: Jakarta Selatan, Depok, dll"
               className="mt-1"
             />

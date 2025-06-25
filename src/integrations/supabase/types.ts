@@ -9,7 +9,111 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      mitra_profiles: {
+        Row: {
+          address: string
+          created_at: string
+          email: string
+          id: string
+          ktp_url: string | null
+          name: string
+          status: string
+          updated_at: string
+          user_id: string
+          whatsapp: string
+          work_location: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          email: string
+          id?: string
+          ktp_url?: string | null
+          name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          whatsapp: string
+          work_location: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          email?: string
+          id?: string
+          ktp_url?: string | null
+          name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          whatsapp?: string
+          work_location?: string
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer_address: string
+          customer_name: string
+          customer_whatsapp: string
+          id: string
+          mitra_id: string | null
+          service_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_address: string
+          customer_name: string
+          customer_whatsapp: string
+          id?: string
+          mitra_id?: string | null
+          service_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_address?: string
+          customer_name?: string
+          customer_whatsapp?: string
+          id?: string
+          mitra_id?: string | null
+          service_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      services: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          price: string
+          service_key: string
+          service_name: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          price: string
+          service_key: string
+          service_name: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          price?: string
+          service_key?: string
+          service_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
