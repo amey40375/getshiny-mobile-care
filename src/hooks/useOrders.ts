@@ -22,13 +22,17 @@ export const useOrders = (mitraOnly = false) => {
 
   const fetchOrders = async () => {
     try {
-      console.log('Fetching orders...');
+      console.log('Fetching orders...', { mitraOnly });
+      setLoading(true);
+      
       let query = supabase.from('orders').select('*');
       
       if (mitraOnly) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          query = query.eq('mitra_id', user.id);
+          console.log('Fetching orders for mitra:', user.id);
+          // For mitra: show NEW orders (available to take) OR orders assigned to this mitra
+          query = query.or(`status.eq.NEW,mitra_id.eq.${user.id}`);
         }
       }
       

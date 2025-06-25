@@ -27,17 +27,23 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
       
       if (!user) {
         console.log('No authenticated user found');
+        setLoading(false);
         return;
       }
 
       let query = supabase
         .from('chat_messages')
         .select('*')
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: true });
 
-      if (receiverId) {
-        query = query.or(`sender_id.eq.${receiverId},receiver_id.eq.${receiverId}`);
+      // For admin: show all messages or specific conversation
+      if (currentUserType === 'admin') {
+        if (receiverId) {
+          query = query.or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`);
+        }
+      } else {
+        // For mitra: show conversation with admin
+        query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
       }
 
       const { data, error } = await query;
@@ -54,7 +60,6 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
       console.log('Messages fetched successfully:', data);
       
-      // Type assertion to ensure proper typing
       const typedMessages = (data || []).map(msg => ({
         ...msg,
         sender_type: msg.sender_type as 'admin' | 'mitra',
@@ -74,7 +79,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
     } finally {
       setLoading(false);
     }
-  }, [receiverId, toast]);
+  }, [currentUserType, receiverId, toast]);
 
   const sendMessage = async (message: string, receiverId: string, receiverType: 'admin' | 'mitra') => {
     try {
@@ -91,10 +96,11 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
       const messageData = {
         sender_id: user.id,
-        receiver_id: receiverId,
+        receiver_id: receiverId === 'admin' ? 'admin-system' : receiverId,
         message: message.trim(),
         sender_type: currentUserType,
-        receiver_type: receiverType
+        receiver_type: receiverType,
+        is_read: false
       };
 
       console.log('Sending message:', messageData);
@@ -114,6 +120,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
       }
 
       console.log('Message sent successfully');
+      await fetchMessages(); // Refresh messages after sending
       return true;
     } catch (error) {
       console.error('Error in sendMessage:', error);

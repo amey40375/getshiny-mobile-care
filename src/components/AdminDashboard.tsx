@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3 } from "lucide-react";
+import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle } from "lucide-react";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
+import LiveChat from "@/components/LiveChat";
 
 interface AdminDashboardProps {
   onBackToUser: () => void;
@@ -15,8 +16,9 @@ interface AdminDashboardProps {
 
 const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
   const [mitraApplications, setMitraApplications] = useState<any[]>([]);
+  const [showChat, setShowChat] = useState(false);
   const { getAllProfiles, updateProfileStatus } = useMitraProfile();
-  const { orders } = useOrders();
+  const { orders, updateOrderStatus } = useOrders();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -39,6 +41,33 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       
       // Refresh data
       fetchMitraApplications();
+    }
+  };
+
+  const handleOrderAction = async (orderId: string, action: 'accept' | 'process' | 'complete' | 'cancel') => {
+    let newStatus = '';
+    switch (action) {
+      case 'accept':
+        newStatus = 'DIPROSES';
+        break;
+      case 'process':
+        newStatus = 'DIPROSES';
+        break;
+      case 'complete':
+        newStatus = 'SELESAI';
+        break;
+      case 'cancel':
+        newStatus = 'DIBATALKAN';
+        break;
+    }
+    
+    const success = await updateOrderStatus(orderId, newStatus);
+    
+    if (success) {
+      toast({
+        title: "Status Updated",
+        description: `Status pesanan berhasil diubah ke ${newStatus}`,
+      });
     }
   };
 
@@ -69,9 +98,19 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
               <ArrowLeft className="w-4 h-4" />
               Kembali ke User
             </Button>
-            <div className="text-right">
-              <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
-              <p className="text-sm text-gray-600">GetShiny Management</p>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={() => setShowChat(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Live Chat
+              </Button>
+              <div className="text-right">
+                <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
+                <p className="text-sm text-gray-600">GetShiny Management</p>
+              </div>
             </div>
           </div>
         </div>
@@ -236,7 +275,7 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                             </Badge>
                           </div>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <div>
                               <p className="text-sm font-medium text-gray-600">Alamat:</p>
                               <p>{order.customer_address}</p>
@@ -249,6 +288,38 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                               <p className="text-sm font-medium text-gray-600">Waktu Pesan:</p>
                               <p>{new Date(order.created_at).toLocaleString('id-ID')}</p>
                             </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-3 pt-4">
+                            {order.status === 'NEW' && (
+                              <>
+                                <Button 
+                                  onClick={() => handleOrderAction(order.id, 'accept')}
+                                  className="bg-green-500 hover:bg-green-600"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Terima
+                                </Button>
+                                <Button 
+                                  onClick={() => handleOrderAction(order.id, 'cancel')}
+                                  variant="destructive"
+                                >
+                                  <XCircle className="w-4 h-4 mr-2" />
+                                  Tolak
+                                </Button>
+                              </>
+                            )}
+                            
+                            {order.status === 'DIPROSES' && (
+                              <Button 
+                                onClick={() => handleOrderAction(order.id, 'complete')}
+                                className="bg-blue-500 hover:bg-blue-600"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Selesai
+                              </Button>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -334,6 +405,15 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
           </Tabs>
         </div>
       </div>
+
+      {/* Live Chat Component */}
+      <LiveChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        currentUserType="admin"
+        receiverId="all-mitra"
+        receiverType="mitra"
+      />
     </div>
   );
 };

@@ -17,20 +17,30 @@ interface MitraDashboardProps {
 
 const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
   const { profile, loading: profileLoading } = useMitraProfile();
-  const { orders, loading: ordersLoading, updateOrderStatus } = useOrders(true);
+  const { orders, loading: ordersLoading, updateOrderStatus, refetch } = useOrders(true);
   const { user } = useAuth();
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
 
-  // Auto-refresh every 15 seconds
+  // Auto-refresh every 15 seconds and on mount
   useEffect(() => {
+    console.log('MitraDashboard mounted, fetching orders...');
+    refetch(); // Fetch immediately on mount
+    
     const interval = setInterval(() => {
       console.log('Auto-refreshing mitra dashboard...');
-      // Orders will auto-refresh due to real-time subscription
+      refetch();
     }, 15000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [refetch]);
+
+  // Log orders for debugging
+  useEffect(() => {
+    console.log('Orders in MitraDashboard:', orders);
+    console.log('User ID:', user?.id);
+    console.log('Orders loading:', ordersLoading);
+  }, [orders, user?.id, ordersLoading]);
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
     const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
@@ -178,7 +188,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
             </AlertDescription>
           </Alert>
 
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Pesanan Baru</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mb-6">Pesanan Tersedia</h2>
           
           {ordersLoading ? (
             <Card>
@@ -190,7 +200,14 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
           ) : orders.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">Belum ada pesanan baru</p>
+                <p className="text-gray-500">Belum ada pesanan tersedia</p>
+                <Button 
+                  onClick={refetch}
+                  variant="outline"
+                  className="mt-4"
+                >
+                  Refresh Pesanan
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -250,7 +267,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                         </div>
                       )}
 
-                      {order.status === 'DIPROSES' && (
+                      {order.status === 'DIPROSES' && order.mitra_id === user?.id && (
                         <div className="pt-4">
                           <Button 
                             onClick={() => openWhatsApp(order.customer_whatsapp, `Halo ${order.customer_name}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service_type} Anda. Kapan waktu yang tepat untuk kami datang?`)}
@@ -275,7 +292,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
         isOpen={showChat}
         onClose={() => setShowChat(false)}
         currentUserType="mitra"
-        receiverId="admin-id-placeholder" // This should be replaced with actual admin ID
+        receiverId="admin"
         receiverType="admin"
       />
     </div>

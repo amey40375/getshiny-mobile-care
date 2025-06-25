@@ -23,7 +23,11 @@ const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
-  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType, receiverId);
+  // For mitra, always chat with admin
+  const actualReceiverId = currentUserType === 'mitra' ? 'admin' : receiverId;
+  const actualReceiverType = currentUserType === 'mitra' ? 'admin' as const : receiverType;
+  
+  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType, actualReceiverId);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,9 +53,14 @@ const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim() || !receiverId || !receiverType) return;
+    if (!message.trim() || !actualReceiverType) return;
 
-    const success = await sendMessage(message, receiverId, receiverType);
+    const success = await sendMessage(
+      message, 
+      actualReceiverId || 'admin-system', 
+      actualReceiverType
+    );
+    
     if (success) {
       setMessage('');
     }
@@ -66,7 +75,7 @@ const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
-              Live Chat
+              Live Chat {currentUserType === 'mitra' ? 'dengan Admin' : 'dengan Mitra'}
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="text-xs">
                   {unreadCount}
