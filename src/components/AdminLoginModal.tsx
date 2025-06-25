@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useProfile";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Shield } from "lucide-react";
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -74,15 +74,22 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-xl font-bold">
+          <DialogTitle className="text-center text-xl font-bold flex items-center justify-center gap-2">
+            <Shield className="w-6 h-6 text-red-600" />
             Admin Login
           </DialogTitle>
         </DialogHeader>
         
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Akses Admin:</strong> Masukkan kredensial admin untuk mengakses dashboard admin dan mengelola semua mitra dan pesanan.
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <p className="text-sm text-red-800">
+            <strong>Cara Akses Admin:</strong>
           </p>
+          <ul className="text-sm text-red-700 mt-2 space-y-1">
+            <li>1. Buat akun baru dengan email dan password</li>
+            <li>2. Login menggunakan form ini</li>
+            <li>3. Akun akan otomatis dibuat sebagai Admin</li>
+            <li>4. Anda dapat mengakses semua fitur admin</li>
+          </ul>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -127,6 +134,14 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
             </div>
           </div>
 
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <p className="text-xs text-yellow-800">
+              <strong>Contoh untuk testing:</strong><br/>
+              Email: admin@getshiny.com<br/>
+              Password: admin123
+            </p>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
@@ -139,7 +154,7 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
             </Button>
             <Button
               type="submit"
-              className="flex-1"
+              className="flex-1 bg-red-600 hover:bg-red-700"
               disabled={loading || !email || !password}
             >
               {loading ? (
@@ -156,6 +171,9 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
 
         <div className="text-center text-sm text-gray-600 mt-4">
           <p>Hanya untuk administrator sistem GetShiny</p>
+          <p className="text-xs mt-1">
+            Jika belum punya akun, buat akun baru dengan email dan password yang mudah diingat
+          </p>
         </div>
       </DialogContent>
     </Dialog>

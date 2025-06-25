@@ -1,291 +1,281 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Settings, Home, Sparkles } from "lucide-react";
+import { MessageCircle, Settings, UserCheck, Shield, Sparkles, Clock, CheckCircle } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import MitraRegisterModal from "@/components/MitraRegisterModal";
-import MitraDashboard from "@/components/MitraDashboard";
+import AdminLoginModal from "@/components/AdminLoginModal";
 import AdminDashboard from "@/components/AdminDashboard";
-import AdminPinModal from "@/components/AdminPinModal";
+import MitraDashboard from "@/components/MitraDashboard";
+import LiveChat from "@/components/LiveChat";
+import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
+import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useServices } from "@/hooks/useServices";
 import { useOrders } from "@/hooks/useOrders";
 
 const Index = () => {
-  const [currentRole, setCurrentRole] = useState<'user' | 'mitra' | 'admin'>('user');
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [showAdminPinModal, setShowAdminPinModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    address: '',
-    service: '',
-    whatsapp: ''
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { toast } = useToast();
-  const { services, loading: servicesLoading } = useServices();
-  const { createOrder } = useOrders();
+  const [showMitraRegister, setShowMitraRegister] = useState(false);
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [showMitraDashboard, setShowMitraDashboard] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
-  const handleSubmitOrder = async (e: React.FormEvent) => {
+  // Form states
+  const [customerName, setCustomerName] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [serviceType, setServiceType] = useState('');
+  const [customerWhatsapp, setCustomerWhatsapp] = useState('');
+
+  const { user, loading: authLoading } = useAuth();
+  const { profile, isAdmin } = useProfile();
+  const { mitraProfile } = useMitraProfile();
+  const { services } = useServices();
+  const { createOrder } = useOrders();
+  const { toast } = useToast();
+
+  // Check if user should be redirected to admin dashboard
+  useEffect(() => {
+    if (profile && isAdmin()) {
+      console.log('User is admin, can access admin dashboard');
+    }
+  }, [profile, isAdmin]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isSubmitting) return;
-    
-    setIsSubmitting(true);
-    
-    try {
-      // Validasi form
-      if (!formData.name.trim()) {
-        toast({
-          title: "Error",
-          description: "Nama lengkap harus diisi",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!formData.address.trim()) {
-        toast({
-          title: "Error",
-          description: "Alamat lengkap harus diisi",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!formData.service) {
-        toast({
-          title: "Error",
-          description: "Pilih jenis layanan",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (!formData.whatsapp.trim()) {
-        toast({
-          title: "Error",
-          description: "Nomor WhatsApp harus diisi",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Validasi nomor WhatsApp yang lebih fleksibel
-      const cleanWhatsApp = formData.whatsapp.replace(/\D/g, '');
-      if (cleanWhatsApp.length < 8 || cleanWhatsApp.length > 15) {
-        toast({
-          title: "Error",
-          description: "Nomor WhatsApp harus 8-15 digit angka",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      // Format nomor WhatsApp - buat lebih fleksibel
-      let finalWhatsApp = cleanWhatsApp;
-      
-      // Jika dimulai dengan 62, hapus 62
-      if (finalWhatsApp.startsWith('62')) {
-        finalWhatsApp = finalWhatsApp.substring(2);
-      }
-      
-      // Jika tidak dimulai dengan 0 atau 8, tambahkan 0 di depan
-      if (!finalWhatsApp.startsWith('0') && !finalWhatsApp.startsWith('8')) {
-        finalWhatsApp = '0' + finalWhatsApp;
-      }
-      
-      // Jika dimulai dengan 0, ubah jadi 8
-      if (finalWhatsApp.startsWith('0')) {
-        finalWhatsApp = '8' + finalWhatsApp.substring(1);
-      }
-      
-      console.log('Attempting to create order with data:', formData);
-      console.log('Final WhatsApp number:', finalWhatsApp);
-      
-      const orderData = {
-        customer_name: formData.name.trim(),
-        customer_address: formData.address.trim(),
-        customer_whatsapp: finalWhatsApp,
-        service_type: formData.service
-      };
-
-      const result = await createOrder(orderData);
-      
-      if (result) {
-        // Reset form after successful submission
-        setFormData({ name: '', address: '', service: '', whatsapp: '' });
-        
-        toast({
-          title: "Pesanan Berhasil!",
-          description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
-        });
-      }
-    } catch (error) {
-      console.error('Error creating order:', error);
+    if (!customerName || !customerAddress || !serviceType || !customerWhatsapp) {
       toast({
         title: "Error",
-        description: "Gagal membuat pesanan. Silakan coba lagi.",
+        description: "Semua field harus diisi",
         variant: "destructive"
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
+    }
+
+    const success = await createOrder({
+      customer_name: customerName,
+      customer_address: customerAddress,
+      service_type: serviceType,
+      customer_whatsapp: customerWhatsapp,
+    });
+
+    if (success) {
+      toast({
+        title: "Pesanan Berhasil!",
+        description: "Pesanan Anda telah diterima dan akan segera diproses",
+      });
+      
+      // Reset form
+      setCustomerName('');
+      setCustomerAddress('');
+      setServiceType('');
+      setCustomerWhatsapp('');
     }
   };
 
-  const handleRoleSwitch = (role: 'user' | 'mitra' | 'admin') => {
-    if (role === 'mitra') {
-      setShowLoginModal(true);
-    } else if (role === 'admin') {
-      setShowAdminPinModal(true);
+  const handleAdminLogin = () => {
+    setShowAdminLogin(false);
+    setShowAdminDashboard(true);
+  };
+
+  const handleMitraAccess = () => {
+    if (mitraProfile && mitraProfile.status === 'accepted') {
+      setShowMitraDashboard(true);
     } else {
-      setCurrentRole(role);
+      setShowLoginModal(true);
     }
   };
 
-  if (currentRole === 'mitra') {
-    return <MitraDashboard onBackToUser={() => setCurrentRole('user')} />;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (currentRole === 'admin') {
-    return <AdminDashboard onBackToUser={() => setCurrentRole('user')} />;
+  // Show Admin Dashboard if user is admin and dashboard is requested
+  if (showAdminDashboard && profile && isAdmin()) {
+    return <AdminDashboard onBackToUser={() => setShowAdminDashboard(false)} />;
+  }
+
+  // Show Mitra Dashboard if accessing mitra mode
+  if (showMitraDashboard && mitraProfile) {
+    return <MitraDashboard onBackToUser={() => setShowMitraDashboard(false)} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <header className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">GetShiny</h1>
-                <p className="text-sm text-gray-500">Layanan Kebersihan Terpercaya</p>
-              </div>
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-8 h-8 text-blue-600" />
+              <h1 className="text-2xl font-bold text-gray-800">GetShiny</h1>
             </div>
-            <div className="flex gap-2">
+            
+            <div className="flex items-center space-x-4">
+              {/* Admin Access Button */}
               <Button
+                onClick={() => setShowAdminLogin(true)}
                 variant="outline"
-                size="sm"
-                onClick={() => handleRoleSwitch('mitra')}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
               >
-                <Users className="w-4 h-4" />
-                Mitra
+                <Shield className="w-4 h-4" />
+                Admin
               </Button>
+
+              {/* Settings Button */}
               <Button
+                onClick={() => setShowSettings(!showSettings)}
                 variant="outline"
-                size="sm"
-                onClick={() => handleRoleSwitch('admin')}
                 className="flex items-center gap-2"
               >
                 <Settings className="w-4 h-4" />
-                Admin
+                Menu
+              </Button>
+
+              {/* Live Chat Button */}
+              <Button
+                onClick={() => setShowChat(true)}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Live Chat
               </Button>
             </div>
           </div>
+
+          {/* Settings Dropdown */}
+          {showSettings && (
+            <div className="absolute right-4 top-16 bg-white border rounded-lg shadow-lg p-4 z-50">
+              <div className="space-y-3">
+                <Button
+                  onClick={handleMitraAccess}
+                  variant="outline"
+                  className="w-full flex items-center gap-2 text-left"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  Beralih ke Mode Mitra
+                </Button>
+                {profile && isAdmin() && (
+                  <Button
+                    onClick={() => {
+                      setShowAdminDashboard(true);
+                      setShowSettings(false);
+                    }}
+                    variant="outline"
+                    className="w-full flex items-center gap-2 text-left border-blue-200 text-blue-600 hover:bg-blue-50"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Dashboard Admin
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Welcome Section */}
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-800 mb-4">
-              Rumah Bersih, Hidup Lebih Nyaman
+      <main className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          {/* Hero Section */}
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-gray-800 mb-4">
+              Layanan Kebersihan Profesional
             </h2>
-            <p className="text-gray-600 mb-6">
-              Pesan layanan cleaning, laundry, dan beberes rumah profesional dengan mudah
+            <p className="text-xl text-gray-600 mb-8">
+              Cleaning, Laundry, dan Beberes Rumah dengan mitra terpercaya
             </p>
-          </div>
-
-          {/* Service Cards */}
-          {!servicesLoading && services.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            
+            {/* Services Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {services.map((service) => (
-                <Card key={service.id} className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200">
-                  <CardContent className="p-4 text-center">
-                    <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
-                      <Home className="w-6 h-6 text-blue-600" />
+                <Card key={service.id} className="border-2 hover:border-blue-300 transition-colors">
+                  <CardContent className="p-6 text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Sparkles className="w-8 h-8 text-blue-600" />
                     </div>
-                    <h3 className="font-semibold text-gray-800 mb-1">
-                      {service.service_name}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">
-                      {service.description}
-                    </p>
-                    <p className="text-blue-600 font-semibold">{service.price}</p>
+                    <h3 className="text-xl font-semibold mb-2">{service.name}</h3>
+                    <p className="text-gray-600 mb-4">{service.description}</p>
+                    <div className="text-2xl font-bold text-blue-600">
+                      Rp {service.price?.toLocaleString('id-ID')}
+                    </div>
+                    {service.unit && (
+                      <p className="text-sm text-gray-500">per {service.unit}</p>
+                    )}
                   </CardContent>
                 </Card>
               ))}
             </div>
-          )}
+          </div>
 
           {/* Order Form */}
-          <Card className="shadow-lg">
+          <Card className="border-2 border-blue-200">
             <CardHeader>
-              <CardTitle className="text-center text-xl text-gray-800">
+              <CardTitle className="text-2xl text-center text-blue-800">
                 Pesan Layanan Sekarang
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmitOrder} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nama Lengkap *</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Masukkan nama lengkap Anda"
-                    className="mt-1"
-                    required
-                    disabled={isSubmitting}
-                  />
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <Label htmlFor="customerName" className="text-lg font-medium">
+                      Nama Lengkap *
+                    </Label>
+                    <Input
+                      id="customerName"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Masukkan nama lengkap"
+                      className="mt-2"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="customerWhatsapp" className="text-lg font-medium">
+                      Nomor WhatsApp *
+                    </Label>
+                    <Input
+                      id="customerWhatsapp"
+                      value={customerWhatsapp}
+                      onChange={(e) => setCustomerWhatsapp(e.target.value)}
+                      placeholder="08123456789"
+                      className="mt-2"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="address">Alamat Lengkap *</Label>
-                  <Textarea
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    placeholder="Masukkan alamat lengkap beserta detail (RT/RW, Kelurahan, dll)"
-                    className="mt-1"
-                    rows={3}
-                    required
-                    disabled={isSubmitting}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="service">Pilih Layanan *</Label>
-                  <Select 
-                    value={formData.service} 
-                    onValueChange={(value) => setFormData({ ...formData, service: value })}
-                    disabled={isSubmitting}
-                  >
-                    <SelectTrigger className="mt-1">
+                  <Label htmlFor="serviceType" className="text-lg font-medium">
+                    Pilih Layanan *
+                  </Label>
+                  <Select value={serviceType} onValueChange={setServiceType} required>
+                    <SelectTrigger className="mt-2">
                       <SelectValue placeholder="Pilih jenis layanan" />
                     </SelectTrigger>
                     <SelectContent>
                       {services.map((service) => (
-                        <SelectItem key={service.service_key} value={service.service_key}>
-                          <div className="flex flex-col">
-                            <span>{service.service_name} - {service.description}</span>
-                            <span className="text-sm text-blue-600">{service.price}</span>
-                          </div>
+                        <SelectItem key={service.id} value={service.name}>
+                          {service.name} - Rp {service.price?.toLocaleString('id-ID')}
+                          {service.unit && ` per ${service.unit}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -293,68 +283,97 @@ const Index = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="whatsapp">Nomor WhatsApp *</Label>
-                  <Input
-                    id="whatsapp"
-                    type="tel"
-                    value={formData.whatsapp}
-                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    placeholder="Contoh: 081234567890 atau 8123456789"
-                    className="mt-1"
+                  <Label htmlFor="customerAddress" className="text-lg font-medium">
+                    Alamat Lengkap *
+                  </Label>
+                  <Textarea
+                    id="customerAddress"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    placeholder="Masukkan alamat lengkap untuk layanan"
+                    className="mt-2"
+                    rows={3}
                     required
-                    disabled={isSubmitting}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Format: 08xxxxxxxxx atau 8xxxxxxxxx atau 62xxxxxxxxx
-                  </p>
                 </div>
 
-                <Button 
-                  type="submit" 
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
-                  disabled={isSubmitting || !formData.name || !formData.address || !formData.service || !formData.whatsapp}
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-3"
                 >
-                  {isSubmitting ? "Memproses..." : "Pesan Sekarang"}
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Pesan Sekarang
                 </Button>
               </form>
             </CardContent>
           </Card>
+
+          {/* How It Works */}
+          <div className="mt-16 text-center">
+            <h3 className="text-2xl font-bold text-gray-800 mb-8">
+              Cara Pemesanan
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-xl font-bold text-blue-600">1</span>
+                </div>
+                <h4 className="text-lg font-semibold mb-2">Isi Form</h4>
+                <p className="text-gray-600">Lengkapi data dan pilih layanan yang diinginkan</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-xl font-bold text-blue-600">2</span>
+                </div>
+                <h4 className="text-lg font-semibold mb-2">Konfirmasi</h4>
+                <p className="text-gray-600">Mitra kami akan menghubungi untuk konfirmasi</p>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                  <span className="text-xl font-bold text-blue-600">3</span>
+                </div>
+                <h4 className="text-lg font-semibold mb-2">Layanan</h4>
+                <p className="text-gray-600">Nikmati layanan profesional di lokasi Anda</p>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      </main>
 
       {/* Modals */}
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onLoginSuccess={() => {
-          setCurrentRole('mitra');
+        onSwitchToRegister={() => {
           setShowLoginModal(false);
+          setShowMitraRegister(true);
         }}
-        onRegisterClick={() => {
+        onMitraLogin={() => {
           setShowLoginModal(false);
-          setShowRegisterModal(true);
+          setShowMitraDashboard(true);
         }}
       />
 
       <MitraRegisterModal
-        isOpen={showRegisterModal}
-        onClose={() => setShowRegisterModal(false)}
-        onSuccess={() => {
-          setShowRegisterModal(false);
-          toast({
-            title: "Pendaftaran Berhasil!",
-            description: "Data Anda telah dikirim ke admin untuk review. Mohon tunggu konfirmasi.",
-          });
+        isOpen={showMitraRegister}
+        onClose={() => setShowMitraRegister(false)}
+        onSwitchToLogin={() => {
+          setShowMitraRegister(false);
+          setShowLoginModal(true);
         }}
       />
 
-      <AdminPinModal
-        isOpen={showAdminPinModal}
-        onClose={() => setShowAdminPinModal(false)}
-        onSuccess={() => {
-          setCurrentRole('admin');
-          setShowAdminPinModal(false);
-        }}
+      <AdminLoginModal
+        isOpen={showAdminLogin}
+        onClose={() => setShowAdminLogin(false)}
+        onAdminLogin={handleAdminLogin}
+      />
+
+      <LiveChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        currentUserType="user"
+        currentUserName="Customer"
       />
     </div>
   );
