@@ -373,6 +373,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
         isOpen={showChat}
         onClose={() => setShowChat(false)}
         currentUserType="mitra"
+        currentUserName={profile?.name}
         receiverId="admin"
         receiverType="admin"
       />

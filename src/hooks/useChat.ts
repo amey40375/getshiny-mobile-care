@@ -10,11 +10,12 @@ interface ChatMessage {
   message: string;
   sender_type: 'admin' | 'mitra';
   receiver_type: 'admin' | 'mitra';
+  sender_name?: string;
   is_read: boolean;
   created_at: string;
 }
 
-export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string) => {
+export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -22,7 +23,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
   const fetchMessages = useCallback(async () => {
     try {
-      console.log('Fetching chat messages...', { currentUserType, receiverId });
+      console.log('Fetching chat messages...', { currentUserType, currentUserName });
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -36,12 +37,12 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         .select('*')
         .order('created_at', { ascending: true });
 
-      // For admin: show all messages between admin and mitra
-      if (currentUserType === 'admin') {
-        query = query.or(`and(sender_type.eq.admin,receiver_type.eq.mitra),and(sender_type.eq.mitra,receiver_type.eq.admin)`);
-      } else {
-        // For mitra: show conversation with admin only
+      // For mitra: show only their conversation with admin
+      if (currentUserType === 'mitra') {
         query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
+      } else {
+        // For admin: show all conversations but we'll filter by specific mitra if needed
+        query = query.or(`sender_type.eq.admin,receiver_type.eq.admin,sender_type.eq.mitra,receiver_type.eq.mitra`);
       }
 
       const { data, error } = await query;
@@ -66,7 +67,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
       
       setMessages(typedMessages);
       
-      // Count unread messages
+      // Count unread messages for current user
       const unread = typedMessages.filter(msg => 
         msg.receiver_id === user.id && !msg.is_read
       ).length;
@@ -77,7 +78,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
     } finally {
       setLoading(false);
     }
-  }, [currentUserType, receiverId, toast]);
+  }, [currentUserType, currentUserName, toast]);
 
   const sendMessage = async (message: string, receiverType: 'admin' | 'mitra' = 'admin') => {
     try {
@@ -92,15 +93,25 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         return false;
       }
 
-      // Use admin-system or mitra-system as placeholder receiver_id
-      const actualReceiverId = receiverType === 'admin' ? 'admin-system' : 'mitra-system';
+      // For mitra sending to admin, use a system admin ID
+      // For admin sending to mitra, use the specific mitra's user ID
+      let actualReceiverId = '';
+      
+      if (currentUserType === 'mitra') {
+        // Mitra sending to admin - use system admin ID or the first admin user
+        actualReceiverId = 'system-admin';
+      } else {
+        // Admin sending to mitra - for now use system, but this should be specific mitra ID
+        actualReceiverId = 'system-mitra';
+      }
 
       const messageData = {
         sender_id: user.id,
-        receiver_id: actualReceiverId,
+        receiver_id: actualReceiverId, 
         message: message.trim(),
         sender_type: currentUserType,
         receiver_type: receiverType,
+        sender_name: currentUserName || '',
         is_read: false
       };
 
@@ -114,7 +125,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         console.error('Error sending message:', error);
         toast({
           title: "Error",
-          description: "Gagal mengirim pesan",
+          description: `Gagal mengirim pesan: ${error.message}`,
           variant: "destructive"
         });
         return false;
@@ -143,6 +154,8 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
       if (error) {
         console.error('Error marking messages as read:', error);
+      } else {
+        console.log('Messages marked as read:', messageIds);
       }
     } catch (error) {
       console.error('Error in markAsRead:', error);

@@ -13,18 +13,19 @@ interface LiveChatProps {
   isOpen: boolean;
   onClose: () => void;
   currentUserType: 'admin' | 'mitra';
+  currentUserName?: string;
   receiverId?: string;
   receiverType?: 'admin' | 'mitra';
 }
 
-const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
+const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveChatProps) => {
   const [message, setMessage] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
-  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType);
+  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType, currentUserName);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,22 +51,37 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim() || isSending) return;
+    if (!message.trim() || isSending) {
+      console.log('Message is empty or already sending');
+      return;
+    }
 
-    console.log('Sending message from LiveChat:', { message, currentUserType });
+    console.log('Sending message from LiveChat:', { 
+      message, 
+      currentUserType, 
+      currentUserName,
+      userId: user?.id 
+    });
     
     setIsSending(true);
     
     // Determine receiver type based on current user
     const receiverType = currentUserType === 'mitra' ? 'admin' : 'mitra';
     
-    const success = await sendMessage(message, receiverType);
-    
-    if (success) {
-      setMessage('');
+    try {
+      const success = await sendMessage(message, receiverType);
+      
+      if (success) {
+        setMessage('');
+        console.log('Message sent successfully, clearing input');
+      } else {
+        console.log('Failed to send message');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    } finally {
+      setIsSending(false);
     }
-    
-    setIsSending(false);
   };
 
   if (!isOpen) return null;
@@ -117,7 +133,7 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
                   Belum ada pesan. Mulai percakapan!
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
@@ -126,12 +142,18 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
                       }`}
                     >
                       <div
-                        className={`max-w-[70%] rounded-lg px-3 py-2 text-sm ${
+                        className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
                           msg.sender_id === user?.id
                             ? 'bg-blue-500 text-white'
                             : 'bg-gray-100 text-gray-800'
                         }`}
                       >
+                        {/* Show sender name for received messages */}
+                        {msg.sender_id !== user?.id && msg.sender_name && (
+                          <div className="text-xs font-semibold mb-1 text-gray-600">
+                            {msg.sender_type === 'mitra' ? `Mitra: ${msg.sender_name}` : 'Admin'}
+                          </div>
+                        )}
                         <div className="break-words">{msg.message}</div>
                         <div
                           className={`text-xs mt-1 ${
@@ -169,7 +191,11 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
                   disabled={!message.trim() || loading || isSending}
                   className="px-3"
                 >
-                  <Send className="w-4 h-4" />
+                  {isSending ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
                 </Button>
               </div>
             </form>
