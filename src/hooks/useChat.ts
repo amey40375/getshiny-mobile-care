@@ -93,13 +93,24 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         return false;
       }
 
-      // For mitra sending to admin, use a system admin ID
-      // For admin sending to mitra, use the specific mitra's user ID
+      // For mitra sending to admin, use a predefined admin ID
+      // For admin sending to mitra, we need a specific mitra ID (this would need to be passed)
       let actualReceiverId = '';
       
       if (currentUserType === 'mitra') {
-        // Mitra sending to admin - use system admin ID or the first admin user
-        actualReceiverId = 'system-admin';
+        // Mitra sending to admin - use the first admin user or create a system admin
+        const { data: adminUsers } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('role', 'admin')
+          .limit(1);
+        
+        if (adminUsers && adminUsers.length > 0) {
+          actualReceiverId = adminUsers[0].user_id;
+        } else {
+          // Fallback - use a system admin ID
+          actualReceiverId = 'system-admin';
+        }
       } else {
         // Admin sending to mitra - for now use system, but this should be specific mitra ID
         actualReceiverId = 'system-mitra';
@@ -111,7 +122,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         message: message.trim(),
         sender_type: currentUserType,
         receiver_type: receiverType,
-        sender_name: currentUserName || '',
+        sender_name: currentUserName || (currentUserType === 'admin' ? 'Admin' : 'Mitra'),
         is_read: false
       };
 

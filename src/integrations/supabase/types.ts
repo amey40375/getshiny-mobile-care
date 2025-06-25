@@ -18,6 +18,7 @@ export type Database = {
           receiver_id: string
           receiver_type: string
           sender_id: string
+          sender_name: string | null
           sender_type: string
         }
         Insert: {
@@ -28,6 +29,7 @@ export type Database = {
           receiver_id: string
           receiver_type: string
           sender_id: string
+          sender_name?: string | null
           sender_type: string
         }
         Update: {
@@ -38,6 +40,7 @@ export type Database = {
           receiver_id?: string
           receiver_type?: string
           sender_id?: string
+          sender_name?: string | null
           sender_type?: string
         }
         Relationships: []
@@ -120,6 +123,36 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          role: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       services: {
         Row: {
           created_at: string
@@ -152,7 +185,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

@@ -147,7 +147,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
     );
   }
 
-  // Filter orders for different tabs
+  // Filter orders: NEW orders (not assigned) and orders assigned to this mitra
   const availableOrders = orders.filter(order => 
     order.status === 'NEW' && !order.mitra_id
   );
@@ -192,7 +192,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
               <div className="text-right">
                 <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Aktif
+                  Aktif - {profile?.name}
                 </Badge>
               </div>
             </div>
@@ -205,7 +205,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
         <div className="max-w-4xl mx-auto">
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <AlertDescription>
-              📋 Gunakan tombol "Refresh" untuk memuat pesanan terbaru. Tab "Pesanan Tersedia" menampilkan pesanan baru, dan "Pesanan Saya" menampilkan pesanan yang sedang Anda kerjakan.
+              📋 Gunakan tombol "Refresh" untuk memuat pesanan terbaru. Tab "Pesanan Tersedia" menampilkan pesanan baru yang belum di-assign, dan "Pesanan Saya" menampilkan pesanan yang sedang Anda kerjakan.
             </AlertDescription>
           </Alert>
 
@@ -223,7 +223,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
             <TabsContent value="available">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pesanan Tersedia</CardTitle>
+                  <CardTitle>Pesanan Tersedia (Belum Di-Assign)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {ordersLoading ? (
@@ -233,7 +233,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                     </div>
                   ) : availableOrders.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">Belum ada pesanan tersedia</p>
+                      <p className="text-gray-500">Belum ada pesanan tersedia yang belum di-assign admin</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
