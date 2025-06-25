@@ -20,7 +20,7 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const { createProfile } = useProfile();
   const { toast } = useToast();
 
@@ -29,27 +29,51 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
     setLoading(true);
 
     try {
-      const { error } = await signIn(email, password);
+      console.log('Admin login attempt:', { email });
       
-      if (error) {
-        toast({
-          title: "Error",
-          description: "Email atau password salah",
-          variant: "destructive"
-        });
-        return;
+      // Try to sign in first
+      let { error: signInError } = await signIn(email, password);
+      
+      if (signInError) {
+        console.log('Sign in failed, trying to sign up:', signInError.message);
+        
+        // If sign in fails, try to sign up (create new admin account)
+        const { error: signUpError } = await signUp(email, password);
+        
+        if (signUpError) {
+          console.error('Sign up failed:', signUpError);
+          toast({
+            title: "Error",
+            description: `Login gagal: ${signUpError.message}`,
+            variant: "destructive"
+          });
+          return;
+        }
+        
+        // After successful signup, sign in
+        const { error: secondSignInError } = await signIn(email, password);
+        if (secondSignInError) {
+          console.error('Second sign in failed:', secondSignInError);
+          toast({
+            title: "Error",
+            description: "Akun dibuat tetapi login gagal. Silakan coba lagi.",
+            variant: "destructive"
+          });
+          return;
+        }
       }
 
       // Create or update profile as admin
-      await createProfile(email, '', 'admin');
+      await createProfile(email, email.split('@')[0], 'admin');
       
       toast({
         title: "Login Berhasil!",
         description: "Selamat datang Admin",
       });
 
+      console.log('Admin login successful');
       onAdminLogin();
-      onClose();
+      handleClose();
       
     } catch (error) {
       console.error('Admin login error:', error);
@@ -85,9 +109,9 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
             <strong>Cara Akses Admin:</strong>
           </p>
           <ul className="text-sm text-red-700 mt-2 space-y-1">
-            <li>1. Buat akun baru dengan email dan password</li>
-            <li>2. Login menggunakan form ini</li>
-            <li>3. Akun akan otomatis dibuat sebagai Admin</li>
+            <li>1. Masukkan email dan password</li>
+            <li>2. Jika belum punya akun, sistem akan membuatkan otomatis</li>
+            <li>3. Akun akan otomatis menjadi Admin</li>
             <li>4. Anda dapat mengakses semua fitur admin</li>
           </ul>
         </div>
@@ -134,8 +158,8 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
             </div>
           </div>
 
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-            <p className="text-xs text-yellow-800">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+            <p className="text-xs text-green-800">
               <strong>Contoh untuk testing:</strong><br/>
               Email: admin@getshiny.com<br/>
               Password: admin123
@@ -170,10 +194,7 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
         </form>
 
         <div className="text-center text-sm text-gray-600 mt-4">
-          <p>Hanya untuk administrator sistem GetShiny</p>
-          <p className="text-xs mt-1">
-            Jika belum punya akun, buat akun baru dengan email dan password yang mudah diingat
-          </p>
+          <p>Sistem akan otomatis membuat akun admin jika belum ada</p>
         </div>
       </DialogContent>
     </Dialog>

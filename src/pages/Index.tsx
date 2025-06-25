@@ -61,6 +61,8 @@ const Index = () => {
       return;
     }
 
+    console.log('Form submission:', { customerName, customerAddress, serviceType, customerWhatsapp });
+
     const success = await createOrder({
       customer_name: customerName,
       customer_address: customerAddress,
@@ -368,7 +370,7 @@ const Index = () => {
       <LiveChat
         isOpen={showChat}
         onClose={() => setShowChat(false)}
-        currentUserType="admin"
+        currentUserType="mitra"
         currentUserName="Customer"
       />
     </div>

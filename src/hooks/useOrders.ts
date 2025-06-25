@@ -66,11 +66,17 @@ export const useOrders = (mitraOnly = false) => {
         throw new Error('Data pesanan tidak lengkap');
       }
 
+      // Normalize service type to match database constraint
+      let normalizedServiceType = orderData.service_type.toLowerCase();
+      if (normalizedServiceType === 'beberes rumah') {
+        normalizedServiceType = 'beberes';
+      }
+
       const insertData = {
         customer_name: orderData.customer_name.trim(),
         customer_address: orderData.customer_address.trim(),
         customer_whatsapp: orderData.customer_whatsapp,
-        service_type: orderData.service_type,
+        service_type: normalizedServiceType, // Use normalized service type
         status: 'NEW'
       };
 

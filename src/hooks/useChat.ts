@@ -41,7 +41,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
       if (currentUserType === 'mitra') {
         query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
       } else {
-        // For admin: show all conversations but we'll filter by specific mitra if needed
+        // For admin: show all conversations
         query = query.or(`sender_type.eq.admin,receiver_type.eq.admin,sender_type.eq.mitra,receiver_type.eq.mitra`);
       }
 
@@ -93,12 +93,11 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         return false;
       }
 
-      // For mitra sending to admin, use a predefined admin ID
-      // For admin sending to mitra, we need a specific mitra ID (this would need to be passed)
-      let actualReceiverId = '';
+      // Get actual admin/mitra user ID based on type
+      let actualReceiverId = user.id; // Default to same user (for testing)
       
-      if (currentUserType === 'mitra') {
-        // Mitra sending to admin - use the first admin user or create a system admin
+      if (currentUserType === 'mitra' && receiverType === 'admin') {
+        // Mitra sending to admin - get first admin user
         const { data: adminUsers } = await supabase
           .from('profiles')
           .select('user_id')
@@ -107,13 +106,10 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         
         if (adminUsers && adminUsers.length > 0) {
           actualReceiverId = adminUsers[0].user_id;
-        } else {
-          // Fallback - use a system admin ID
-          actualReceiverId = 'system-admin';
         }
-      } else {
-        // Admin sending to mitra - for now use system, but this should be specific mitra ID
-        actualReceiverId = 'system-mitra';
+      } else if (currentUserType === 'admin' && receiverType === 'mitra') {
+        // Admin sending to mitra - for now use the same user (this should be specific mitra)
+        actualReceiverId = user.id;
       }
 
       const messageData = {
