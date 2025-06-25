@@ -68,12 +68,18 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
       
       toast({
         title: "Login Berhasil!",
-        description: "Selamat datang Admin",
+        description: "Selamat datang Admin, mengarahkan ke dashboard...",
       });
 
       console.log('Admin login successful');
-      onAdminLogin();
+      
+      // Close modal first, then trigger admin dashboard
       handleClose();
+      
+      // Small delay to ensure modal closes, then open admin dashboard
+      setTimeout(() => {
+        onAdminLogin();
+      }, 100);
       
     } catch (error) {
       console.error('Admin login error:', error);
@@ -112,7 +118,7 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
             <li>1. Masukkan email dan password</li>
             <li>2. Jika belum punya akun, sistem akan membuatkan otomatis</li>
             <li>3. Akun akan otomatis menjadi Admin</li>
-            <li>4. Anda dapat mengakses semua fitur admin</li>
+            <li>4. Anda akan diarahkan ke Dashboard Admin</li>
           </ul>
         </div>
 
@@ -194,7 +200,7 @@ const AdminLoginModal = ({ isOpen, onClose, onAdminLogin }: AdminLoginModalProps
         </form>
 
         <div className="text-center text-sm text-gray-600 mt-4">
-          <p>Sistem akan otomatis membuat akun admin jika belum ada</p>
+          <p>Sistem akan otomatis membuat akun admin dan mengarahkan ke dashboard</p>
         </div>
       </DialogContent>
     </Dialog>

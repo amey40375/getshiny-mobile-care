@@ -42,12 +42,48 @@ const Index = () => {
   const { createOrder } = useOrders();
   const { toast } = useToast();
 
-  // Check if user should be redirected to admin dashboard
+  // Auto-redirect admin users to dashboard when they have admin profile
   useEffect(() => {
-    if (profile && isAdmin()) {
-      console.log('User is admin, can access admin dashboard');
+    if (user && profile && isAdmin() && !showAdminDashboard) {
+      console.log('Admin user detected, redirecting to admin dashboard');
+      setShowAdminDashboard(true);
     }
-  }, [profile, isAdmin]);
+  }, [user, profile, isAdmin, showAdminDashboard]);
+
+  const handleAdminLogin = () => {
+    console.log('Admin login handler called');
+    setShowAdminLogin(false);
+    setShowAdminDashboard(true);
+  };
+
+  const handleMitraAccess = () => {
+    if (mitraProfile && mitraProfile.status === 'accepted') {
+      setShowMitraDashboard(true);
+    } else {
+      setShowLoginModal(true);
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show Admin Dashboard if user is admin and dashboard is requested OR if user is already admin
+  if ((showAdminDashboard || (user && profile && isAdmin())) && profile && isAdmin()) {
+    return <AdminDashboard onBackToUser={() => setShowAdminDashboard(false)} />;
+  }
+
+  // Show Mitra Dashboard if accessing mitra mode
+  if (showMitraDashboard && mitraProfile) {
+    return <MitraDashboard onBackToUser={() => setShowMitraDashboard(false)} />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,40 +120,6 @@ const Index = () => {
     }
   };
 
-  const handleAdminLogin = () => {
-    setShowAdminLogin(false);
-    setShowAdminDashboard(true);
-  };
-
-  const handleMitraAccess = () => {
-    if (mitraProfile && mitraProfile.status === 'accepted') {
-      setShowMitraDashboard(true);
-    } else {
-      setShowLoginModal(true);
-    }
-  };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show Admin Dashboard if user is admin and dashboard is requested
-  if (showAdminDashboard && profile && isAdmin()) {
-    return <AdminDashboard onBackToUser={() => setShowAdminDashboard(false)} />;
-  }
-
-  // Show Mitra Dashboard if accessing mitra mode
-  if (showMitraDashboard && mitraProfile) {
-    return <MitraDashboard onBackToUser={() => setShowMitraDashboard(false)} />;
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white">
       {/* Header */}
@@ -130,15 +132,28 @@ const Index = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Admin Access Button */}
-              <Button
-                onClick={() => setShowAdminLogin(true)}
-                variant="outline"
-                className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
-              >
-                <Shield className="w-4 h-4" />
-                Admin
-              </Button>
+              {/* Admin Access Button - Only show if not already admin */}
+              {!(user && profile && isAdmin()) && (
+                <Button
+                  onClick={() => setShowAdminLogin(true)}
+                  variant="outline"
+                  className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  <Shield className="w-4 h-4" />
+                  Admin
+                </Button>
+              )}
+
+              {/* Admin Dashboard Button - Only show if user is admin */}
+              {user && profile && isAdmin() && (
+                <Button
+                  onClick={() => setShowAdminDashboard(true)}
+                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
+                >
+                  <Shield className="w-4 h-4" />
+                  Dashboard Admin
+                </Button>
+              )}
 
               {/* Settings Button */}
               <Button
@@ -173,7 +188,7 @@ const Index = () => {
                   <UserCheck className="w-4 h-4" />
                   Beralih ke Mode Mitra
                 </Button>
-                {profile && isAdmin() && (
+                {user && profile && isAdmin() && (
                   <Button
                     onClick={() => {
                       setShowAdminDashboard(true);
@@ -215,7 +230,7 @@ const Index = () => {
                     <h3 className="text-xl font-semibold mb-2">{service.service_name}</h3>
                     <p className="text-gray-600 mb-4">{service.description}</p>
                     <div className="text-2xl font-bold text-blue-600">
-                      Rp {parseInt(service.price).toLocaleString('id-ID')}
+                      Rp {parseInt(service.price).toLocaleString()}
                     </div>
                   </CardContent>
                 </Card>
@@ -273,7 +288,7 @@ const Index = () => {
                     <SelectContent>
                       {services.map((service) => (
                         <SelectItem key={service.id} value={service.service_name}>
-                          {service.service_name} - Rp {parseInt(service.price).toLocaleString('id-ID')}
+                          {service.service_name} - Rp {parseInt(service.price).toLocaleString()}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -370,7 +385,7 @@ const Index = () => {
       <LiveChat
         isOpen={showChat}
         onClose={() => setShowChat(false)}
-        currentUserType="mitra"
+        currentUserType="user"
         currentUserName="Customer"
       />
     </div>
