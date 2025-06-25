@@ -41,7 +41,14 @@ export const useMitraProfile = () => {
         return;
       }
 
-      setProfile(data);
+      if (data) {
+        // Type assertion to ensure status is properly typed
+        const typedProfile: MitraProfile = {
+          ...data,
+          status: data.status as 'pending' | 'accepted' | 'rejected'
+        };
+        setProfile(typedProfile);
+      }
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -77,8 +84,16 @@ export const useMitraProfile = () => {
         return null;
       }
 
-      setProfile(data);
-      return data;
+      if (data) {
+        // Type assertion to ensure status is properly typed
+        const typedProfile: MitraProfile = {
+          ...data,
+          status: data.status as 'pending' | 'accepted' | 'rejected'
+        };
+        setProfile(typedProfile);
+        return typedProfile;
+      }
+      return null;
     } catch (error) {
       console.error('Error:', error);
       return null;
@@ -97,7 +112,16 @@ export const useMitraProfile = () => {
         return [];
       }
 
-      return data || [];
+      if (data) {
+        // Type assertion for all profiles
+        const typedProfiles: MitraProfile[] = data.map(profile => ({
+          ...profile,
+          status: profile.status as 'pending' | 'accepted' | 'rejected'
+        }));
+        return typedProfiles;
+      }
+
+      return [];
     } catch (error) {
       console.error('Error:', error);
       return [];
