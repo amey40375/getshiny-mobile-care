@@ -53,12 +53,20 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
       }
 
       console.log('Messages fetched successfully:', data);
-      setMessages(data || []);
+      
+      // Type assertion to ensure proper typing
+      const typedMessages = (data || []).map(msg => ({
+        ...msg,
+        sender_type: msg.sender_type as 'admin' | 'mitra',
+        receiver_type: msg.receiver_type as 'admin' | 'mitra'
+      })) as ChatMessage[];
+      
+      setMessages(typedMessages);
       
       // Count unread messages
-      const unread = data?.filter(msg => 
+      const unread = typedMessages.filter(msg => 
         msg.receiver_id === user.id && !msg.is_read
-      ).length || 0;
+      ).length;
       setUnreadCount(unread);
       
     } catch (error) {
