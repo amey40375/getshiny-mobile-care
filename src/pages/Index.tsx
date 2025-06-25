@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,7 @@ const Index = () => {
 
   const { user, loading: authLoading } = useAuth();
   const { profile, isAdmin } = useProfile();
-  const { mitraProfile } = useMitraProfile();
+  const { profile: mitraProfile } = useMitraProfile();
   const { services } = useServices();
   const { createOrder } = useOrders();
   const { toast } = useToast();
@@ -210,14 +211,11 @@ const Index = () => {
                     <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Sparkles className="w-8 h-8 text-blue-600" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-2">{service.name}</h3>
+                    <h3 className="text-xl font-semibold mb-2">{service.service_name}</h3>
                     <p className="text-gray-600 mb-4">{service.description}</p>
                     <div className="text-2xl font-bold text-blue-600">
-                      Rp {service.price?.toLocaleString('id-ID')}
+                      Rp {parseInt(service.price).toLocaleString('id-ID')}
                     </div>
-                    {service.unit && (
-                      <p className="text-sm text-gray-500">per {service.unit}</p>
-                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -273,9 +271,8 @@ const Index = () => {
                     </SelectTrigger>
                     <SelectContent>
                       {services.map((service) => (
-                        <SelectItem key={service.id} value={service.name}>
-                          {service.name} - Rp {service.price?.toLocaleString('id-ID')}
-                          {service.unit && ` per ${service.unit}`}
+                        <SelectItem key={service.id} value={service.service_name}>
+                          {service.service_name} - Rp {parseInt(service.price).toLocaleString('id-ID')}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -344,20 +341,20 @@ const Index = () => {
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onSwitchToRegister={() => {
-          setShowLoginModal(false);
-          setShowMitraRegister(true);
-        }}
-        onMitraLogin={() => {
+        onLoginSuccess={() => {
           setShowLoginModal(false);
           setShowMitraDashboard(true);
+        }}
+        onRegisterClick={() => {
+          setShowLoginModal(false);
+          setShowMitraRegister(true);
         }}
       />
 
       <MitraRegisterModal
         isOpen={showMitraRegister}
         onClose={() => setShowMitraRegister(false)}
-        onSwitchToLogin={() => {
+        onRegisterSuccess={() => {
           setShowMitraRegister(false);
           setShowLoginModal(true);
         }}
@@ -372,7 +369,7 @@ const Index = () => {
       <LiveChat
         isOpen={showChat}
         onClose={() => setShowChat(false)}
-        currentUserType="user"
+        currentUserType="admin"
         currentUserName="Customer"
       />
     </div>
