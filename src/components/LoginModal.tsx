@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -15,35 +16,72 @@ interface LoginModalProps {
 
 const LoginModal = ({ isOpen, onClose, onLoginSuccess, onRegisterClick }: LoginModalProps) => {
   const [loginData, setLoginData] = useState({ email: '', password: '' });
-  const [isSignUp, setIsSignUp] = useState(false);
-  const { signIn, signUp } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const { signIn } = useAuth();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!loginData.email || !loginData.password) {
+      toast({
+        title: "Error",
+        description: "Email dan password harus diisi",
+        variant: "destructive"
+      });
       return;
     }
 
-    if (isSignUp) {
-      const { error } = await signUp(loginData.email, loginData.password);
-      if (!error) {
-        onLoginSuccess();
-      }
-    } else {
+    setIsLoading(true);
+
+    try {
+      console.log('Attempting login with:', loginData.email);
+      
       const { error } = await signIn(loginData.email, loginData.password);
+      
       if (!error) {
+        console.log('Login successful');
+        toast({
+          title: "Login Berhasil!",
+          description: "Selamat datang di dashboard mitra",
+        });
+        
+        // Reset form
+        setLoginData({ email: '', password: '' });
         onLoginSuccess();
+      } else {
+        console.error('Login error:', error);
+        toast({
+          title: "Login Gagal",
+          description: "Email atau password salah",
+          variant: "destructive"
+        });
       }
+    } catch (error) {
+      console.error('Login exception:', error);
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat login",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (!isLoading) {
+      setLoginData({ email: '', password: '' });
+      onClose();
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center">
-            {isSignUp ? 'Daftar Akun Mitra' : 'Login Mitra'}
+            Login Mitra
           </DialogTitle>
         </DialogHeader>
         
@@ -57,6 +95,8 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, onRegisterClick }: LoginM
               onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
               placeholder="nama@email.com"
               className="mt-1"
+              disabled={isLoading}
+              required
             />
           </div>
           
@@ -69,34 +109,30 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, onRegisterClick }: LoginM
               onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
               placeholder="Password Anda"
               className="mt-1"
+              disabled={isLoading}
+              required
             />
           </div>
           
           <div className="space-y-3">
-            <Button type="submit" className="w-full">
-              {isSignUp ? 'Daftar' : 'Login'}
+            <Button 
+              type="submit" 
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "Memproses..." : "Login"}
             </Button>
             
             <div className="text-center">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm"
-              >
-                {isSignUp ? 'Sudah punya akun? Login' : 'Belum punya akun? Daftar'}
-              </Button>
-            </div>
-            
-            <div className="text-center">
               <p className="text-sm text-gray-600 mb-2">
-                Ingin daftar sebagai mitra?
+                Belum terdaftar sebagai mitra?
               </p>
               <Button
                 type="button"
                 variant="outline"
                 onClick={onRegisterClick}
                 className="w-full"
+                disabled={isLoading}
               >
                 Daftar Sebagai Mitra
               </Button>

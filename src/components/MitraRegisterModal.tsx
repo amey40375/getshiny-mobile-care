@@ -79,12 +79,12 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
       return;
     }
 
-    // Validasi nomor WhatsApp
-    const whatsappRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
-    if (!whatsappRegex.test(formData.whatsapp)) {
+    // Validasi nomor WhatsApp yang lebih fleksibel
+    const cleanWhatsApp = formData.whatsapp.replace(/\D/g, '');
+    if (cleanWhatsApp.length < 8 || cleanWhatsApp.length > 15) {
       toast({
         title: "Error",
-        description: "Format nomor WhatsApp tidak valid. Contoh: 081234567890",
+        description: "Nomor WhatsApp harus 8-15 digit angka",
         variant: "destructive"
       });
       setLoading(false);
@@ -112,11 +112,23 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
       // Tunggu sebentar untuk memastikan user sudah terbuat
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      // Format nomor WhatsApp
+      let finalWhatsApp = cleanWhatsApp;
+      if (finalWhatsApp.startsWith('62')) {
+        finalWhatsApp = finalWhatsApp.substring(2);
+      }
+      if (!finalWhatsApp.startsWith('0') && !finalWhatsApp.startsWith('8')) {
+        finalWhatsApp = '0' + finalWhatsApp;
+      }
+      if (finalWhatsApp.startsWith('0')) {
+        finalWhatsApp = '8' + finalWhatsApp.substring(1);
+      }
+
       // Buat profil mitra
       const profileData = {
         name: formData.name.trim(),
         address: formData.address.trim(),
-        whatsapp: formData.whatsapp.trim(),
+        whatsapp: finalWhatsApp,
         email: formData.email.trim(),
         work_location: formData.work_location.trim(),
         ktp_url: formData.ktp ? formData.ktp.name : ''
@@ -279,11 +291,14 @@ const MitraRegisterModal = ({ isOpen, onClose, onSuccess }: MitraRegisterModalPr
               type="tel"
               value={formData.whatsapp}
               onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-              placeholder="081234567890"
+              placeholder="Contoh: 081234567890 atau 8123456789"
               className="mt-1"
               disabled={loading}
               required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Format: 08xxxxxxxxx atau 8xxxxxxxxx atau 62xxxxxxxxx
+            </p>
           </div>
           
           <div>

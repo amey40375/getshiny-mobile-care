@@ -78,32 +78,37 @@ const Index = () => {
         return;
       }
 
-      // Validasi nomor WhatsApp
+      // Validasi nomor WhatsApp yang lebih fleksibel
       const cleanWhatsApp = formData.whatsapp.replace(/\D/g, '');
-      if (cleanWhatsApp.length < 10 || cleanWhatsApp.length > 15) {
+      if (cleanWhatsApp.length < 8 || cleanWhatsApp.length > 15) {
         toast({
           title: "Error",
-          description: "Format nomor WhatsApp tidak valid. Contoh: 081234567890",
+          description: "Nomor WhatsApp harus 8-15 digit angka",
           variant: "destructive"
         });
         return;
       }
 
-      // Pastikan nomor dimulai dengan 8 jika sudah dibersihkan dari awalan +62 atau 62
+      // Format nomor WhatsApp - buat lebih fleksibel
       let finalWhatsApp = cleanWhatsApp;
+      
+      // Jika dimulai dengan 62, hapus 62
       if (finalWhatsApp.startsWith('62')) {
         finalWhatsApp = finalWhatsApp.substring(2);
       }
-      if (!finalWhatsApp.startsWith('8')) {
-        toast({
-          title: "Error",
-          description: "Nomor WhatsApp harus dimulai dengan 08. Contoh: 081234567890",
-          variant: "destructive"
-        });
-        return;
+      
+      // Jika tidak dimulai dengan 0 atau 8, tambahkan 0 di depan
+      if (!finalWhatsApp.startsWith('0') && !finalWhatsApp.startsWith('8')) {
+        finalWhatsApp = '0' + finalWhatsApp;
+      }
+      
+      // Jika dimulai dengan 0, ubah jadi 8
+      if (finalWhatsApp.startsWith('0')) {
+        finalWhatsApp = '8' + finalWhatsApp.substring(1);
       }
       
       console.log('Attempting to create order with data:', formData);
+      console.log('Final WhatsApp number:', finalWhatsApp);
       
       const orderData = {
         customer_name: formData.name.trim(),
@@ -294,13 +299,13 @@ const Index = () => {
                     type="tel"
                     value={formData.whatsapp}
                     onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    placeholder="081234567890"
+                    placeholder="Contoh: 081234567890 atau 8123456789"
                     className="mt-1"
                     required
                     disabled={isSubmitting}
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Format: 08xxxxxxxxx
+                    Format: 08xxxxxxxxx atau 8xxxxxxxxx atau 62xxxxxxxxx
                   </p>
                 </div>
 

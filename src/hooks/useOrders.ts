@@ -62,20 +62,17 @@ export const useOrders = (mitraOnly = false) => {
         throw new Error('Data pesanan tidak lengkap');
       }
 
-      // Clean phone number format
-      const cleanWhatsApp = orderData.customer_whatsapp.replace(/\D/g, '');
-      
       const insertData = {
         customer_name: orderData.customer_name.trim(),
         customer_address: orderData.customer_address.trim(),
-        customer_whatsapp: cleanWhatsApp,
+        customer_whatsapp: orderData.customer_whatsapp,
         service_type: orderData.service_type,
         status: 'NEW'
       };
 
       console.log('Inserting order data:', insertData);
 
-      // Use the public.orders table directly with the fixed RLS policies
+      // Insert data langsung ke tabel orders
       const { data, error } = await supabase
         .from('orders')
         .insert([insertData])
