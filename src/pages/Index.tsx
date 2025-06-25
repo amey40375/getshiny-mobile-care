@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MessageCircle, Settings, UserCheck, Shield, Sparkles, Clock, CheckCircle } from "lucide-react";
 import LoginModal from "@/components/LoginModal";
 import MitraRegisterModal from "@/components/MitraRegisterModal";
-import AdminLoginModal from "@/components/AdminLoginModal";
+import AdminPinLoginModal from "@/components/AdminPinLoginModal";
 import AdminDashboard from "@/components/AdminDashboard";
 import MitraDashboard from "@/components/MitraDashboard";
 import LiveChat from "@/components/LiveChat";
@@ -24,7 +24,7 @@ import { useOrders } from "@/hooks/useOrders";
 const Index = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showMitraRegister, setShowMitraRegister] = useState(false);
-  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showAdminPinLogin, setShowAdminPinLogin] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [showMitraDashboard, setShowMitraDashboard] = useState(false);
   const [showChat, setShowChat] = useState(false);
@@ -37,23 +37,15 @@ const Index = () => {
   const [customerWhatsapp, setCustomerWhatsapp] = useState('');
 
   const { user, loading: authLoading } = useAuth();
-  const { profile, isAdmin } = useProfile();
+  const { profile } = useProfile();
   const { profile: mitraProfile } = useMitraProfile();
   const { services } = useServices();
   const { createOrder } = useOrders();
   const { toast } = useToast();
 
-  // Auto-redirect admin users to dashboard when they have admin profile
-  useEffect(() => {
-    if (user && profile && isAdmin() && !showAdminDashboard) {
-      console.log('Admin user detected, redirecting to admin dashboard');
-      setShowAdminDashboard(true);
-    }
-  }, [user, profile, isAdmin, showAdminDashboard]);
-
-  const handleAdminLogin = () => {
-    console.log('Admin login handler called');
-    setShowAdminLogin(false);
+  const handleAdminPinLogin = () => {
+    console.log('Admin PIN login successful, redirecting to admin dashboard');
+    setShowAdminPinLogin(false);
     setShowAdminDashboard(true);
   };
 
@@ -76,8 +68,8 @@ const Index = () => {
     );
   }
 
-  // Show Admin Dashboard if user is admin and dashboard is requested OR if user is already admin
-  if ((showAdminDashboard || (user && profile && isAdmin())) && profile && isAdmin()) {
+  // Show Admin Dashboard if PIN authenticated
+  if (showAdminDashboard) {
     return <AdminDashboard onBackToUser={() => setShowAdminDashboard(false)} />;
   }
 
@@ -133,28 +125,15 @@ const Index = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Admin Access Button - Only show if not already admin */}
-              {!(user && profile && isAdmin()) && (
-                <Button
-                  onClick={() => setShowAdminLogin(true)}
-                  variant="outline"
-                  className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
-                >
-                  <Shield className="w-4 h-4" />
-                  Admin
-                </Button>
-              )}
-
-              {/* Admin Dashboard Button - Only show if user is admin */}
-              {user && profile && isAdmin() && (
-                <Button
-                  onClick={() => setShowAdminDashboard(true)}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700"
-                >
-                  <Shield className="w-4 h-4" />
-                  Dashboard Admin
-                </Button>
-              )}
+              {/* Admin Access Button */}
+              <Button
+                onClick={() => setShowAdminPinLogin(true)}
+                variant="outline"
+                className="flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50"
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </Button>
 
               {/* Settings Button */}
               <Button
@@ -189,19 +168,6 @@ const Index = () => {
                   <UserCheck className="w-4 h-4" />
                   Beralih ke Mode Mitra
                 </Button>
-                {user && profile && isAdmin() && (
-                  <Button
-                    onClick={() => {
-                      setShowAdminDashboard(true);
-                      setShowSettings(false);
-                    }}
-                    variant="outline"
-                    className="w-full flex items-center gap-2 text-left border-blue-200 text-blue-600 hover:bg-blue-50"
-                  >
-                    <Shield className="w-4 h-4" />
-                    Dashboard Admin
-                  </Button>
-                )}
               </div>
             </div>
           )}
@@ -377,10 +343,10 @@ const Index = () => {
         }}
       />
 
-      <AdminLoginModal
-        isOpen={showAdminLogin}
-        onClose={() => setShowAdminLogin(false)}
-        onAdminLogin={handleAdminLogin}
+      <AdminPinLoginModal
+        isOpen={showAdminPinLogin}
+        onClose={() => setShowAdminPinLogin(false)}
+        onAdminLogin={handleAdminPinLogin}
       />
 
       <LiveChat
