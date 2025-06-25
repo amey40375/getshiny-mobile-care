@@ -22,6 +22,7 @@ export const useOrders = (mitraOnly = false) => {
 
   const fetchOrders = async () => {
     try {
+      console.log('Fetching orders...');
       let query = supabase.from('orders').select('*');
       
       if (mitraOnly) {
@@ -43,9 +44,10 @@ export const useOrders = (mitraOnly = false) => {
         return;
       }
       
+      console.log('Orders fetched successfully:', data);
       setOrders(data || []);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in fetchOrders:', error);
     } finally {
       setLoading(false);
     }
@@ -53,38 +55,69 @@ export const useOrders = (mitraOnly = false) => {
 
   const createOrder = async (orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'status' | 'mitra_id'>) => {
     try {
+      console.log('Creating order with data:', orderData);
+      
+      // Validasi data sebelum insert
+      if (!orderData.customer_name || !orderData.customer_address || !orderData.customer_whatsapp || !orderData.service_type) {
+        throw new Error('Data pesanan tidak lengkap');
+      }
+
+      const insertData = {
+        customer_name: orderData.customer_name,
+        customer_address: orderData.customer_address,
+        customer_whatsapp: orderData.customer_whatsapp,
+        service_type: orderData.service_type,
+        status: 'NEW'
+      };
+
+      console.log('Inserting order data:', insertData);
+
       const { data, error } = await supabase
         .from('orders')
-        .insert([orderData])
+        .insert([insertData])
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating order:', error);
+        console.error('Supabase insert error:', error);
         toast({
           title: "Error",
-          description: "Gagal membuat pesanan",
+          description: `Gagal membuat pesanan: ${error.message}`,
           variant: "destructive"
         });
         return null;
       }
 
+      console.log('Order created successfully:', data);
+      
       toast({
         title: "Pesanan Berhasil!",
         description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
       });
 
-      fetchOrders();
+      // Refresh orders list
+      await fetchOrders();
       return data;
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in createOrder:', error);
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat membuat pesanan",
+        variant: "destructive"
+      });
       return null;
     }
   };
 
   const updateOrderStatus = async (orderId: string, status: string, mitraId?: string) => {
     try {
-      const updateData: any = { status, updated_at: new Date().toISOString() };
+      console.log('Updating order status:', { orderId, status, mitraId });
+      
+      const updateData: any = { 
+        status, 
+        updated_at: new Date().toISOString() 
+      };
+      
       if (mitraId) {
         updateData.mitra_id = mitraId;
       }
@@ -104,10 +137,11 @@ export const useOrders = (mitraOnly = false) => {
         return false;
       }
 
-      fetchOrders();
+      console.log('Order status updated successfully');
+      await fetchOrders();
       return true;
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error in updateOrderStatus:', error);
       return false;
     }
   };
@@ -122,7 +156,8 @@ export const useOrders = (mitraOnly = false) => {
         event: '*',
         schema: 'public',
         table: 'orders'
-      }, () => {
+      }, (payload) => {
+        console.log('Real-time order update:', payload);
         fetchOrders();
       })
       .subscribe();

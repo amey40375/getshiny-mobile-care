@@ -12,6 +12,7 @@ import LoginModal from "@/components/LoginModal";
 import MitraRegisterModal from "@/components/MitraRegisterModal";
 import MitraDashboard from "@/components/MitraDashboard";
 import AdminDashboard from "@/components/AdminDashboard";
+import AdminPinModal from "@/components/AdminPinModal";
 import { useServices } from "@/hooks/useServices";
 import { useOrders } from "@/hooks/useOrders";
 
@@ -19,6 +20,7 @@ const Index = () => {
   const [currentRole, setCurrentRole] = useState<'user' | 'mitra' | 'admin'>('user');
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showAdminPinModal, setShowAdminPinModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -32,6 +34,8 @@ const Index = () => {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validasi form
     if (!formData.name || !formData.address || !formData.service || !formData.whatsapp) {
       toast({
         title: "Error",
@@ -40,17 +44,43 @@ const Index = () => {
       });
       return;
     }
+
+    // Validasi nomor WhatsApp
+    const whatsappRegex = /^(\+62|62|0)8[1-9][0-9]{6,9}$/;
+    if (!whatsappRegex.test(formData.whatsapp)) {
+      toast({
+        title: "Error",
+        description: "Format nomor WhatsApp tidak valid. Contoh: 081234567890",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log('Attempting to create order with data:', formData);
     
     const orderData = {
-      customer_name: formData.name,
-      customer_address: formData.address,
-      customer_whatsapp: formData.whatsapp,
+      customer_name: formData.name.trim(),
+      customer_address: formData.address.trim(),
+      customer_whatsapp: formData.whatsapp.trim(),
       service_type: formData.service
     };
 
-    const result = await createOrder(orderData);
-    if (result) {
-      setFormData({ name: '', address: '', service: '', whatsapp: '' });
+    try {
+      const result = await createOrder(orderData);
+      if (result) {
+        setFormData({ name: '', address: '', service: '', whatsapp: '' });
+        toast({
+          title: "Pesanan Berhasil!",
+          description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating order:', error);
+      toast({
+        title: "Error",
+        description: "Gagal membuat pesanan. Silakan coba lagi.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -58,8 +88,7 @@ const Index = () => {
     if (role === 'mitra') {
       setShowLoginModal(true);
     } else if (role === 'admin') {
-      // For demo purposes, directly switch to admin
-      setCurrentRole('admin');
+      setShowAdminPinModal(true);
     } else {
       setCurrentRole(role);
     }
@@ -126,9 +155,9 @@ const Index = () => {
           </div>
 
           {/* Service Cards */}
-          {!servicesLoading && (
+          {!servicesLoading && services.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {services.map((service, index) => (
+              {services.map((service) => (
                 <Card key={service.id} className="hover:shadow-lg transition-shadow cursor-pointer border-2 hover:border-blue-200">
                   <CardContent className="p-4 text-center">
                     <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-3 flex items-center justify-center">
@@ -157,7 +186,7 @@ const Index = () => {
             <CardContent>
               <form onSubmit={handleSubmitOrder} className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Nama Lengkap</Label>
+                  <Label htmlFor="name">Nama Lengkap *</Label>
                   <Input
                     id="name"
                     type="text"
@@ -165,11 +194,12 @@ const Index = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Masukkan nama lengkap Anda"
                     className="mt-1"
+                    required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="address">Alamat Lengkap</Label>
+                  <Label htmlFor="address">Alamat Lengkap *</Label>
                   <Textarea
                     id="address"
                     value={formData.address}
@@ -177,12 +207,13 @@ const Index = () => {
                     placeholder="Masukkan alamat lengkap beserta detail (RT/RW, Kelurahan, dll)"
                     className="mt-1"
                     rows={3}
+                    required
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="service">Pilih Layanan</Label>
-                  <Select onValueChange={(value) => setFormData({ ...formData, service: value })}>
+                  <Label htmlFor="service">Pilih Layanan *</Label>
+                  <Select value={formData.service} onValueChange={(value) => setFormData({ ...formData, service: value })}>
                     <SelectTrigger className="mt-1">
                       <SelectValue placeholder="Pilih jenis layanan" />
                     </SelectTrigger>
@@ -200,18 +231,26 @@ const Index = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="whatsapp">Nomor WhatsApp</Label>
+                  <Label htmlFor="whatsapp">Nomor WhatsApp *</Label>
                   <Input
                     id="whatsapp"
                     type="tel"
                     value={formData.whatsapp}
                     onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                    placeholder="08123456789"
+                    placeholder="081234567890"
                     className="mt-1"
+                    required
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Format: 08xxxxxxxxx atau +628xxxxxxxxx
+                  </p>
                 </div>
 
-                <Button type="submit" className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                  disabled={!formData.name || !formData.address || !formData.service || !formData.whatsapp}
+                >
                   Pesan Sekarang
                 </Button>
               </form>
@@ -243,6 +282,15 @@ const Index = () => {
             title: "Pendaftaran Berhasil!",
             description: "Data Anda telah dikirim ke admin untuk review. Mohon tunggu konfirmasi.",
           });
+        }}
+      />
+
+      <AdminPinModal
+        isOpen={showAdminPinModal}
+        onClose={() => setShowAdminPinModal(false)}
+        onSuccess={() => {
+          setCurrentRole('admin');
+          setShowAdminPinModal(false);
         }}
       />
     </div>
