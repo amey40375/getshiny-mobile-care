@@ -20,6 +20,7 @@ interface LiveChatProps {
 const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
   const [message, setMessage] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
@@ -49,9 +50,11 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim()) return;
+    if (!message.trim() || isSending) return;
 
     console.log('Sending message from LiveChat:', { message, currentUserType });
+    
+    setIsSending(true);
     
     // Determine receiver type based on current user
     const receiverType = currentUserType === 'mitra' ? 'admin' : 'mitra';
@@ -61,6 +64,8 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
     if (success) {
       setMessage('');
     }
+    
+    setIsSending(false);
   };
 
   if (!isOpen) return null;
@@ -156,12 +161,12 @@ const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
                   placeholder="Ketik pesan..."
                   className="flex-1 text-sm"
                   maxLength={500}
-                  disabled={loading}
+                  disabled={loading || isSending}
                 />
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={!message.trim() || loading}
+                  disabled={!message.trim() || loading || isSending}
                   className="px-3"
                 >
                   <Send className="w-4 h-4" />

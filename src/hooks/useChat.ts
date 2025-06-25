@@ -36,10 +36,9 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         .select('*')
         .order('created_at', { ascending: true });
 
-      // For admin: show all messages or specific conversation
+      // For admin: show all messages between admin and mitra
       if (currentUserType === 'admin') {
-        // Admin sees all messages
-        query = query.or(`sender_type.eq.admin,receiver_type.eq.admin`);
+        query = query.or(`and(sender_type.eq.admin,receiver_type.eq.mitra),and(sender_type.eq.mitra,receiver_type.eq.admin)`);
       } else {
         // For mitra: show conversation with admin only
         query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
@@ -93,9 +92,9 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         return false;
       }
 
-      // For mitra sending to admin, use fixed admin identifier
-      // For admin sending to mitra, they can send to all mitra or specific one
-      const actualReceiverId = currentUserType === 'mitra' ? 'admin-system' : 'mitra-system';
+      // For mitra sending to admin or admin sending to mitra
+      // Use a placeholder receiver_id that will be handled by admin
+      const actualReceiverId = currentUserType === 'mitra' ? user.id : user.id;
 
       const messageData = {
         sender_id: user.id,

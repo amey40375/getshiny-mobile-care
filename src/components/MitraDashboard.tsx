@@ -22,7 +22,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
 
-  // Auto-refresh every 15 seconds
+  // Auto-refresh with proper interval management
   useEffect(() => {
     console.log('MitraDashboard mounted, setting up 15-second refresh...');
     refetch(); // Fetch immediately on mount
@@ -32,7 +32,10 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
       refetch();
     }, 15000); // 15 seconds
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log('Cleaning up refresh interval');
+      clearInterval(interval);
+    };
   }, [refetch]);
 
   // Log orders for debugging
