@@ -17,17 +17,13 @@ interface LiveChatProps {
   receiverType?: 'admin' | 'mitra';
 }
 
-const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }: LiveChatProps) => {
+const LiveChat = ({ isOpen, onClose, currentUserType }: LiveChatProps) => {
   const [message, setMessage] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
-  // For mitra, always chat with admin
-  const actualReceiverId = currentUserType === 'mitra' ? 'admin' : receiverId;
-  const actualReceiverType = currentUserType === 'mitra' ? 'admin' as const : receiverType;
-  
-  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType, actualReceiverId);
+  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,13 +49,14 @@ const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim() || !actualReceiverType) return;
+    if (!message.trim()) return;
 
-    const success = await sendMessage(
-      message, 
-      actualReceiverId || 'admin-system', 
-      actualReceiverType
-    );
+    console.log('Sending message from LiveChat:', { message, currentUserType });
+    
+    // Determine receiver type based on current user
+    const receiverType = currentUserType === 'mitra' ? 'admin' : 'mitra';
+    
+    const success = await sendMessage(message, receiverType);
     
     if (success) {
       setMessage('');
@@ -159,6 +156,7 @@ const LiveChat = ({ isOpen, onClose, currentUserType, receiverId, receiverType }
                   placeholder="Ketik pesan..."
                   className="flex-1 text-sm"
                   maxLength={500}
+                  disabled={loading}
                 />
                 <Button
                   type="submit"

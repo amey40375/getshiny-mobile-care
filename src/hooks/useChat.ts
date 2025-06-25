@@ -22,7 +22,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
   const fetchMessages = useCallback(async () => {
     try {
-      console.log('Fetching chat messages...');
+      console.log('Fetching chat messages...', { currentUserType, receiverId });
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {
@@ -38,11 +38,10 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
 
       // For admin: show all messages or specific conversation
       if (currentUserType === 'admin') {
-        if (receiverId) {
-          query = query.or(`and(sender_id.eq.${user.id},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${user.id})`);
-        }
+        // Admin sees all messages
+        query = query.or(`sender_type.eq.admin,receiver_type.eq.admin`);
       } else {
-        // For mitra: show conversation with admin
+        // For mitra: show conversation with admin only
         query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
       }
 
@@ -81,7 +80,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
     }
   }, [currentUserType, receiverId, toast]);
 
-  const sendMessage = async (message: string, receiverId: string, receiverType: 'admin' | 'mitra') => {
+  const sendMessage = async (message: string, receiverType: 'admin' | 'mitra' = 'admin') => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -94,9 +93,13 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
         return false;
       }
 
+      // For mitra sending to admin, use fixed admin identifier
+      // For admin sending to mitra, they can send to all mitra or specific one
+      const actualReceiverId = currentUserType === 'mitra' ? 'admin-system' : 'mitra-system';
+
       const messageData = {
         sender_id: user.id,
-        receiver_id: receiverId === 'admin' ? 'admin-system' : receiverId,
+        receiver_id: actualReceiverId,
         message: message.trim(),
         sender_type: currentUserType,
         receiver_type: receiverType,
@@ -124,6 +127,11 @@ export const useChat = (currentUserType: 'admin' | 'mitra', receiverId?: string)
       return true;
     } catch (error) {
       console.error('Error in sendMessage:', error);
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat mengirim pesan",
+        variant: "destructive"
+      });
       return false;
     }
   };

@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle, UserCheck } from "lucide-react";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
 import LiveChat from "@/components/LiveChat";
@@ -71,6 +72,18 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
     }
   };
 
+  const handleAssignOrder = async (orderId: string, mitraId: string) => {
+    const success = await updateOrderStatus(orderId, 'DIPROSES', mitraId);
+    
+    if (success) {
+      const assignedMitra = mitraApplications.find(m => m.user_id === mitraId);
+      toast({
+        title: "Pesanan Assigned",
+        description: `Pesanan telah diassign ke ${assignedMitra?.name || 'Mitra'}`,
+      });
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -83,6 +96,8 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const acceptedMitra = mitraApplications.filter(app => app.status === 'accepted');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-white">
@@ -269,6 +284,11 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                             <div>
                               <h3 className="font-semibold text-lg">{order.customer_name}</h3>
                               <p className="text-gray-600">Layanan: {order.service_type}</p>
+                              {order.mitra_id && (
+                                <p className="text-sm text-blue-600">
+                                  Assigned to: {acceptedMitra.find(m => m.user_id === order.mitra_id)?.name || 'Unknown Mitra'}
+                                </p>
+                              )}
                             </div>
                             <Badge className={getStatusColor(order.status)}>
                               {order.status}
@@ -290,36 +310,57 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                             </div>
                           </div>
 
-                          {/* Action Buttons */}
-                          <div className="flex gap-3 pt-4">
-                            {order.status === 'NEW' && (
-                              <>
-                                <Button 
-                                  onClick={() => handleOrderAction(order.id, 'accept')}
-                                  className="bg-green-500 hover:bg-green-600"
-                                >
-                                  <CheckCircle className="w-4 h-4 mr-2" />
-                                  Terima
-                                </Button>
-                                <Button 
-                                  onClick={() => handleOrderAction(order.id, 'cancel')}
-                                  variant="destructive"
-                                >
-                                  <XCircle className="w-4 h-4 mr-2" />
-                                  Tolak
-                                </Button>
-                              </>
+                          {/* Assignment and Action Section */}
+                          <div className="space-y-3 pt-4">
+                            {order.status === 'NEW' && acceptedMitra.length > 0 && (
+                              <div className="flex gap-3 items-center">
+                                <Select onValueChange={(mitraId) => handleAssignOrder(order.id, mitraId)}>
+                                  <SelectTrigger className="w-64">
+                                    <SelectValue placeholder="Assign ke Mitra..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {acceptedMitra.map((mitra) => (
+                                      <SelectItem key={mitra.user_id} value={mitra.user_id}>
+                                        {mitra.name} - {mitra.work_location}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <UserCheck className="w-4 h-4 text-blue-500" />
+                              </div>
                             )}
                             
-                            {order.status === 'DIPROSES' && (
-                              <Button 
-                                onClick={() => handleOrderAction(order.id, 'complete')}
-                                className="bg-blue-500 hover:bg-blue-600"
-                              >
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Selesai
-                              </Button>
-                            )}
+                            {/* Action Buttons */}
+                            <div className="flex gap-3">
+                              {order.status === 'NEW' && (
+                                <>
+                                  <Button 
+                                    onClick={() => handleOrderAction(order.id, 'accept')}
+                                    className="bg-green-500 hover:bg-green-600"
+                                  >
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Terima
+                                  </Button>
+                                  <Button 
+                                    onClick={() => handleOrderAction(order.id, 'cancel')}
+                                    variant="destructive"
+                                  >
+                                    <XCircle className="w-4 h-4 mr-2" />
+                                    Tolak
+                                  </Button>
+                                </>
+                              )}
+                              
+                              {order.status === 'DIPROSES' && (
+                                <Button 
+                                  onClick={() => handleOrderAction(order.id, 'complete')}
+                                  className="bg-blue-500 hover:bg-blue-600"
+                                >
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Selesai
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
@@ -411,8 +452,6 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
         isOpen={showChat}
         onClose={() => setShowChat(false)}
         currentUserType="admin"
-        receiverId="all-mitra"
-        receiverType="mitra"
       />
     </div>
   );
