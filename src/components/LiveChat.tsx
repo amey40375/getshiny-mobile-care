@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, MessageCircle, X } from "lucide-react";
+import { Send, MessageCircle, X, User } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -22,10 +22,11 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
   const [message, setMessage] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [selectedMitraId, setSelectedMitraId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
-  const { messages, loading, sendMessage, markAsRead, unreadCount } = useChat(currentUserType, currentUserName);
+  const { messages, loading, sendMessage, markAsRead, unreadCount, mitraProfiles } = useChat(currentUserType, currentUserName);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -60,16 +61,27 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
       message, 
       currentUserType, 
       currentUserName,
-      userId: user?.id 
+      userId: user?.id,
+      selectedMitraId 
     });
     
     setIsSending(true);
     
-    // Determine receiver type based on current user
-    const receiverType = currentUserType === 'mitra' ? 'admin' : 'mitra';
-    
     try {
-      const success = await sendMessage(message, receiverType);
+      let success = false;
+      
+      if (currentUserType === 'mitra') {
+        // Mitra sending to admin
+        success = await sendMessage(message, 'admin');
+      } else if (currentUserType === 'admin') {
+        // Admin sending to selected mitra
+        if (selectedMitraId) {
+          success = await sendMessage(message, 'mitra', selectedMitraId);
+        } else {
+          console.log('No mitra selected for admin message');
+          success = false;
+        }
+      }
       
       if (success) {
         setMessage('');
@@ -83,6 +95,14 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
       setIsSending(false);
     }
   };
+
+  // Filter messages based on selected mitra for admin
+  const filteredMessages = currentUserType === 'admin' && selectedMitraId
+    ? messages.filter(msg => 
+        (msg.sender_id === selectedMitraId && msg.receiver_id === user?.id) ||
+        (msg.sender_id === user?.id && msg.receiver_id === selectedMitraId)
+      )
+    : messages;
 
   if (!isOpen) return null;
 
@@ -119,6 +139,24 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
               </Button>
             </div>
           </div>
+          
+          {/* Mitra selection for admin */}
+          {currentUserType === 'admin' && !isMinimized && (
+            <div className="mt-2">
+              <select 
+                value={selectedMitraId || ''} 
+                onChange={(e) => setSelectedMitraId(e.target.value || null)}
+                className="w-full text-xs border rounded px-2 py-1"
+              >
+                <option value="">Pilih Mitra...</option>
+                {mitraProfiles.map((mitra) => (
+                  <option key={mitra.user_id} value={mitra.user_id}>
+                    {mitra.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </CardHeader>
         
         {!isMinimized && (
@@ -128,13 +166,16 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
                 <div className="text-center text-gray-500 text-sm">
                   Memuat pesan...
                 </div>
-              ) : messages.length === 0 ? (
+              ) : filteredMessages.length === 0 ? (
                 <div className="text-center text-gray-500 text-sm">
-                  Belum ada pesan. Mulai percakapan!
+                  {currentUserType === 'admin' && !selectedMitraId 
+                    ? 'Pilih mitra untuk melihat percakapan'
+                    : 'Belum ada pesan. Mulai percakapan!'
+                  }
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {messages.map((msg) => (
+                  {filteredMessages.map((msg) => (
                     <div
                       key={msg.id}
                       className={`flex ${
@@ -150,8 +191,10 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
                       >
                         {/* Show sender name for received messages */}
                         {msg.sender_id !== user?.id && msg.sender_name && (
-                          <div className="text-xs font-semibold mb-1 text-gray-600">
-                            {msg.sender_type === 'mitra' ? `Mitra: ${msg.sender_name}` : 'Admin'}
+                          <div className="text-xs font-semibold mb-1 text-gray-600 flex items-center gap-1">
+                            <User className="w-3 h-3" />
+                            {msg.sender_type === 'mitra' ? `${msg.sender_name}` : 'Admin'}
+                            <span className="w-2 h-2 bg-green-500 rounded-full ml-1"></span>
                           </div>
                         )}
                         <div className="break-words">{msg.message}</div>
@@ -180,15 +223,24 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
                 <Input
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder="Ketik pesan..."
+                  placeholder={
+                    currentUserType === 'admin' && !selectedMitraId 
+                      ? 'Pilih mitra terlebih dahulu...'
+                      : 'Ketik pesan...'
+                  }
                   className="flex-1 text-sm"
                   maxLength={500}
-                  disabled={loading || isSending}
+                  disabled={loading || isSending || (currentUserType === 'admin' && !selectedMitraId)}
                 />
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={!message.trim() || loading || isSending}
+                  disabled={
+                    !message.trim() || 
+                    loading || 
+                    isSending || 
+                    (currentUserType === 'admin' && !selectedMitraId)
+                  }
                   className="px-3"
                 >
                   {isSending ? (

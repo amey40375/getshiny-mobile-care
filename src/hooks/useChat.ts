@@ -19,7 +19,26 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [mitraProfiles, setMitraProfiles] = useState<any[]>([]);
   const { toast } = useToast();
+
+  // Fetch mitra profiles for admin view
+  const fetchMitraProfiles = useCallback(async () => {
+    if (currentUserType === 'admin') {
+      try {
+        const { data, error } = await supabase
+          .from('mitra_profiles')
+          .select('*')
+          .eq('status', 'accepted');
+        
+        if (!error && data) {
+          setMitraProfiles(data);
+        }
+      } catch (error) {
+        console.error('Error fetching mitra profiles:', error);
+      }
+    }
+  }, [currentUserType]);
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -80,7 +99,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     }
   }, [currentUserType, currentUserName, toast]);
 
-  const sendMessage = async (message: string, receiverType: 'admin' | 'mitra' = 'admin') => {
+  const sendMessage = async (message: string, receiverType: 'admin' | 'mitra' = 'admin', specificReceiverId?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -93,11 +112,11 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         return false;
       }
 
-      // Get actual admin/mitra user ID based on type
-      let actualReceiverId = user.id; // Default to same user (for testing)
+      // Determine receiver ID based on context
+      let actualReceiverId = specificReceiverId || user.id;
       
       if (currentUserType === 'mitra' && receiverType === 'admin') {
-        // Mitra sending to admin - get first admin user
+        // Mitra sending to admin - use a default admin ID or get first admin
         const { data: adminUsers } = await supabase
           .from('profiles')
           .select('user_id')
@@ -106,10 +125,21 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         
         if (adminUsers && adminUsers.length > 0) {
           actualReceiverId = adminUsers[0].user_id;
+        } else {
+          // Fallback: use a known admin user ID
+          actualReceiverId = 'admin-default-id';
         }
       } else if (currentUserType === 'admin' && receiverType === 'mitra') {
-        // Admin sending to mitra - for now use the same user (this should be specific mitra)
-        actualReceiverId = user.id;
+        // Admin replying to mitra - use specificReceiverId if provided
+        if (!specificReceiverId) {
+          toast({
+            title: "Error", 
+            description: "Pilih mitra untuk membalas pesan",
+            variant: "destructive"
+          });
+          return false;
+        }
+        actualReceiverId = specificReceiverId;
       }
 
       const messageData = {
@@ -171,6 +201,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
 
   useEffect(() => {
     fetchMessages();
+    fetchMitraProfiles();
 
     // Set up real-time subscription
     const channel = supabase
@@ -188,12 +219,13 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchMessages]);
+  }, [fetchMessages, fetchMitraProfiles]);
 
   return {
     messages,
     loading,
     unreadCount,
+    mitraProfiles,
     sendMessage,
     markAsRead,
     refetch: fetchMessages

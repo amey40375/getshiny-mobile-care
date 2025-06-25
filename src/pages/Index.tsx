@@ -50,11 +50,32 @@ const Index = () => {
   };
 
   const handleMitraAccess = () => {
-    if (mitraProfile && mitraProfile.status === 'accepted') {
+    if (user && mitraProfile && mitraProfile.status === 'accepted') {
+      console.log('User is logged in and mitra profile is accepted, redirecting to mitra dashboard');
       setShowMitraDashboard(true);
     } else {
+      console.log('User needs to login first');
       setShowLoginModal(true);
     }
+  };
+
+  const handleMitraLoginSuccess = () => {
+    console.log('Mitra login successful, checking profile status...');
+    setShowLoginModal(false);
+    
+    // Small delay to ensure profile data is loaded
+    setTimeout(() => {
+      if (mitraProfile && mitraProfile.status === 'accepted') {
+        console.log('Mitra profile is accepted, redirecting to dashboard');
+        setShowMitraDashboard(true);
+      } else {
+        console.log('Mitra profile not accepted yet, staying on user page');
+        toast({
+          title: "Login Berhasil",
+          description: "Silakan tunggu konfirmasi dari admin untuk mengakses dashboard mitra",
+        });
+      }
+    }, 1000);
   };
 
   if (authLoading) {
@@ -324,10 +345,7 @@ const Index = () => {
       <LoginModal
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
-        onLoginSuccess={() => {
-          setShowLoginModal(false);
-          setShowMitraDashboard(true);
-        }}
+        onLoginSuccess={handleMitraLoginSuccess}
         onRegisterClick={() => {
           setShowLoginModal(false);
           setShowMitraRegister(true);
