@@ -20,6 +20,9 @@ interface MitraProfile {
   user_id: string;
   name: string;
   status: string;
+  email: string;
+  whatsapp: string;
+  work_location: string;
 }
 
 export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: string) => {
@@ -77,42 +80,53 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     fetchAdminUserId();
   }, [currentUserType, user?.id, user?.email]);
 
-  // Fetch mitra profiles for admin - improved query
-  useEffect(() => {
-    if (currentUserType === 'admin') {
-      fetchMitraProfiles();
-    }
-  }, [currentUserType]);
-
+  // Fetch mitra profiles for admin - improved query with better error handling
   const fetchMitraProfiles = async () => {
     try {
       console.log('Fetching mitra profiles for admin...');
       
+      // First, try to get accepted mitra profiles
       const { data, error } = await supabase
         .from('mitra_profiles')
-        .select('user_id, name, status')
+        .select('user_id, name, status, email, whatsapp, work_location')
         .eq('status', 'accepted');
 
       if (error) {
         console.error('Error fetching mitra profiles:', error);
-        // Fallback: try to get all mitra profiles if the RLS policy is too restrictive
-        const { data: fallbackData, error: fallbackError } = await supabase
+        
+        // If there's an error, try without status filter to debug
+        const { data: allData, error: allError } = await supabase
           .from('mitra_profiles')
-          .select('user_id, name, status');
+          .select('user_id, name, status, email, whatsapp, work_location');
           
-        if (!fallbackError && fallbackData) {
-          console.log('Fallback mitra profiles loaded:', fallbackData);
-          setMitraProfiles(fallbackData);
+        if (!allError && allData) {
+          console.log('All mitra profiles (for debugging):', allData);
+          // Filter accepted profiles manually
+          const acceptedProfiles = allData.filter(profile => profile.status === 'accepted');
+          console.log('Accepted mitra profiles:', acceptedProfiles);
+          setMitraProfiles(acceptedProfiles);
+        } else {
+          console.error('Error fetching all mitra profiles:', allError);
+          setMitraProfiles([]);
         }
         return;
       }
 
-      console.log('Mitra profiles loaded:', data);
+      console.log('Mitra profiles loaded successfully:', data);
       setMitraProfiles(data || []);
     } catch (error) {
       console.error('Error in fetchMitraProfiles:', error);
+      setMitraProfiles([]);
     }
   };
+
+  // Fetch mitra profiles when admin logs in
+  useEffect(() => {
+    if (currentUserType === 'admin' && user?.id) {
+      console.log('Admin logged in, fetching mitra profiles...');
+      fetchMitraProfiles();
+    }
+  }, [currentUserType, user?.id]);
 
   // Fetch messages - improved
   const fetchMessages = async () => {
@@ -186,26 +200,12 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
             setAdminUserId(adminData[0].user_id);
             targetReceiverId = adminData[0].user_id;
           } else {
-            // If still no admin, use a fallback approach
-            console.log('Creating fallback admin profile...');
-            
-            // Try to find any user that could be admin
-            const { data: anyUser, error: userError } = await supabase
-              .from('profiles')
-              .select('user_id')
-              .limit(1);
-              
-            if (!userError && anyUser && anyUser.length > 0) {
-              targetReceiverId = anyUser[0].user_id;
-              setAdminUserId(anyUser[0].user_id);
-            } else {
-              toast({
-                title: "Error",
-                description: "Tidak dapat menemukan admin. Silakan coba refresh halaman.",
-                variant: "destructive"
-              });
-              return false;
-            }
+            toast({
+              title: "Error",
+              description: "Tidak dapat menemukan admin. Silakan coba refresh halaman.",
+              variant: "destructive"
+            });
+            return false;
           }
         } else {
           targetReceiverId = adminUserId;
@@ -352,6 +352,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     adminUserId,
     sendMessage,
     markAsRead,
-    refetch: fetchMessages
+    refetch: fetchMessages,
+    refreshMitraProfiles: fetchMitraProfiles
   };
 };

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,10 +5,11 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle, UserCheck, LogOut } from "lucide-react";
+import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle, UserCheck, LogOut, Send, Phone, MapPin, Mail } from "lucide-react";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
 import { useServices } from "@/hooks/useServices";
+import { useChat } from "@/hooks/useChat";
 import LiveChat from "@/components/LiveChat";
 
 interface AdminDashboardProps {
@@ -19,14 +19,23 @@ interface AdminDashboardProps {
 const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
   const [mitraApplications, setMitraApplications] = useState<any[]>([]);
   const [showChat, setShowChat] = useState(false);
+  const [selectedMitraForChat, setSelectedMitraForChat] = useState<any>(null);
   const { getAllProfiles, updateProfileStatus } = useMitraProfile();
   const { orders, updateOrderStatus } = useOrders();
   const { services } = useServices();
+  const { mitraProfiles, refreshMitraProfiles } = useChat('admin', 'Admin');
   const { toast } = useToast();
 
   useEffect(() => {
     fetchMitraApplications();
   }, []);
+
+  // Refresh mitra profiles when component mounts
+  useEffect(() => {
+    if (refreshMitraProfiles) {
+      refreshMitraProfiles();
+    }
+  }, [refreshMitraProfiles]);
 
   const fetchMitraApplications = async () => {
     const profiles = await getAllProfiles();
@@ -44,6 +53,10 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       
       // Refresh data
       fetchMitraApplications();
+      // Also refresh mitra profiles for chat
+      if (refreshMitraProfiles) {
+        refreshMitraProfiles();
+      }
     }
   };
 
@@ -84,6 +97,11 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
         description: `Pesanan telah diassign ke ${assignedMitra?.name || 'Mitra'}`,
       });
     }
+  };
+
+  const handleSendMessageToMitra = (mitra: any) => {
+    setSelectedMitraForChat(mitra);
+    setShowChat(true);
   };
 
   const handleLogout = () => {
@@ -202,8 +220,9 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
 
           {/* Main Content Tabs */}
           <Tabs defaultValue="mitra" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="mitra">Aplikasi Mitra</TabsTrigger>
+              <TabsTrigger value="accepted-mitra">Mitra Diterima</TabsTrigger>
               <TabsTrigger value="orders">Kelola Pesanan</TabsTrigger>
               <TabsTrigger value="settings">Pengaturan</TabsTrigger>
             </TabsList>
@@ -274,6 +293,90 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Accepted Mitra Tab - NEW */}
+            <TabsContent value="accepted-mitra">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Mitra yang Sudah Diterima ({mitraProfiles.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {mitraProfiles.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p>Belum ada mitra yang diterima</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {mitraProfiles.map((mitra) => (
+                        <Card key={mitra.user_id} className="border-l-4 border-l-green-500 hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h3 className="font-semibold text-lg text-gray-800">{mitra.name}</h3>
+                                <Badge className="bg-green-100 text-green-800 text-xs">
+                                  AKTIF
+                                </Badge>
+                              </div>
+                              <Button
+                                onClick={() => handleSendMessageToMitra(mitra)}
+                                size="sm"
+                                className="bg-blue-500 hover:bg-blue-600 flex items-center gap-1"
+                              >
+                                <Send className="w-3 h-3" />
+                                Kirim Pesan
+                              </Button>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Mail className="w-4 h-4" />
+                                <span>{mitra.email}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <Phone className="w-4 h-4" />
+                                <span>{mitra.whatsapp}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <MapPin className="w-4 h-4" />
+                                <span>{mitra.work_location}</span>
+                              </div>
+                            </div>
+                            
+                            {/* Quick Actions */}
+                            <div className="mt-3 pt-3 border-t border-gray-100">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 text-xs"
+                                  onClick={() => window.open(`https://wa.me/${mitra.whatsapp.replace(/[^0-9]/g, '')}`, '_blank')}
+                                >
+                                  <Phone className="w-3 h-3 mr-1" />
+                                  WhatsApp
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="flex-1 text-xs"
+                                  onClick={() => handleSendMessageToMitra(mitra)}
+                                >
+                                  <MessageCircle className="w-3 h-3 mr-1" />
+                                  Chat
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -438,9 +541,14 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       {/* Live Chat Component */}
       <LiveChat
         isOpen={showChat}
-        onClose={() => setShowChat(false)}
+        onClose={() => {
+          setShowChat(false);
+          setSelectedMitraForChat(null);
+        }}
         currentUserType="admin"
         currentUserName="Admin"
+        receiverId={selectedMitraForChat?.user_id}
+        receiverType="mitra"
       />
     </div>
   );

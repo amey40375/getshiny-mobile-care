@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Send, MessageCircle, X, User } from "lucide-react";
+import { Send, MessageCircle, X, User, Users } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -18,15 +18,29 @@ interface LiveChatProps {
   receiverType?: 'admin' | 'mitra';
 }
 
-const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveChatProps) => {
+const LiveChat = ({ 
+  isOpen, 
+  onClose, 
+  currentUserType, 
+  currentUserName, 
+  receiverId,
+  receiverType 
+}: LiveChatProps) => {
   const [message, setMessage] = useState('');
   const [isMinimized, setIsMinimized] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [selectedMitraId, setSelectedMitraId] = useState<string | null>(null);
+  const [selectedMitraId, setSelectedMitraId] = useState<string | null>(receiverId || null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   
   const { messages, loading, sendMessage, markAsRead, unreadCount, mitraProfiles } = useChat(currentUserType, currentUserName);
+
+  // Update selected mitra when receiverId changes
+  useEffect(() => {
+    if (receiverId) {
+      setSelectedMitraId(receiverId);
+    }
+  }, [receiverId]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -111,6 +125,11 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
         )
       : messages;
 
+  // Get selected mitra name for display
+  const selectedMitraName = selectedMitraId 
+    ? mitraProfiles.find(m => m.user_id === selectedMitraId)?.name || 'Mitra'
+    : '';
+
   if (!isOpen) return null;
 
   return (
@@ -120,7 +139,13 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <MessageCircle className="w-4 h-4" />
-              Live Chat {currentUserType === 'mitra' ? 'dengan Admin' : 'dengan Mitra'}
+              {currentUserType === 'mitra' ? (
+                'Chat dengan Admin'
+              ) : selectedMitraId ? (
+                `Chat dengan ${selectedMitraName}`
+              ) : (
+                'Live Chat'
+              )}
               {unreadCount > 0 && (
                 <Badge variant="destructive" className="text-xs">
                   {unreadCount}
@@ -148,7 +173,7 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
           </div>
           
           {/* Mitra selection for admin */}
-          {currentUserType === 'admin' && !isMinimized && (
+          {currentUserType === 'admin' && !isMinimized && !receiverId && (
             <div className="mt-2">
               <select 
                 value={selectedMitraId || ''} 
@@ -162,6 +187,12 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
                   </option>
                 ))}
               </select>
+              {mitraProfiles.length === 0 && (
+                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  Belum ada mitra yang diterima
+                </p>
+              )}
             </div>
           )}
         </CardHeader>
