@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,12 +81,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
     console.log(`Handle order action: ${action} for order ${orderId}`);
     
-    const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
-    const mitraId = action === 'accept' ? user?.id : undefined;
-    
-    console.log('Updating order with status:', { orderId, newStatus, mitraId, userId: user?.id });
-    
-    if (action === 'accept' && !user?.id) {
+    if (!user?.id) {
       toast({
         title: "Error",
         description: "User ID tidak ditemukan. Silakan logout dan login kembali.",
@@ -96,7 +90,11 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
       return;
     }
     
-    const success = await updateOrderStatus(orderId, newStatus, mitraId);
+    const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
+    
+    console.log('Updating order with status:', { orderId, newStatus, userId: user.id });
+    
+    const success = await updateOrderStatus(orderId, newStatus);
     
     if (success) {
       toast({
@@ -121,7 +119,8 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
       return;
     }
     
-    const success = await updateOrderStatus(orderId, 'SEDANG_DIKERJAKAN', user.id);
+    console.log('Calling updateOrderStatus with SEDANG_DIKERJAKAN');
+    const success = await updateOrderStatus(orderId, 'SEDANG_DIKERJAKAN');
     
     if (success) {
       // Start timer
@@ -138,7 +137,13 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
         title: "Mulai Bekerja",
         description: "Timer dimulai. Selamat bekerja!",
       });
-      await handleManualRefresh();
+      
+      // Refresh data to get updated status
+      setTimeout(() => {
+        handleManualRefresh();
+      }, 1000);
+    } else {
+      console.error('Failed to update order status to SEDANG_DIKERJAKAN');
     }
   };
 
@@ -150,7 +155,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     const hours = duration / (1000 * 60 * 60);
     const totalAmount = Math.ceil(hours * HOURLY_RATE);
     
-    const success = await updateOrderStatus(orderId, 'SELESAI', user?.id);
+    const success = await updateOrderStatus(orderId, 'SELESAI');
     
     if (success) {
       // Stop timer

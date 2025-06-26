@@ -134,24 +134,33 @@ export const useOrders = (mitraOnly = false) => {
         return false;
       }
 
+      console.log('Current user ID:', user.id);
+
+      // Build update data
       const updateData: any = { 
         status, 
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString()
       };
       
+      // Set mitra_id if provided, otherwise use current user ID for mitra actions
       if (mitraId) {
         updateData.mitra_id = mitraId;
+      } else if (status === 'DIPROSES' || status === 'SEDANG_DIKERJAKAN') {
+        updateData.mitra_id = user.id;
       }
 
-      console.log('Update data being sent:', updateData);
+      console.log('Final update data being sent:', updateData);
 
-      const { error } = await supabase
+      // Perform the update
+      const { data, error } = await supabase
         .from('orders')
         .update(updateData)
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .select()
+        .single();
 
       if (error) {
-        console.error('Error updating order:', error);
+        console.error('Supabase update error:', error);
         toast({
           title: "Error",
           description: `Gagal memperbarui status pesanan: ${error.message}`,
@@ -160,9 +169,12 @@ export const useOrders = (mitraOnly = false) => {
         return false;
       }
 
-      console.log('Order status updated successfully');
+      console.log('Order status updated successfully:', data);
+      
+      // Refresh orders after successful update
       await fetchOrders();
       
+      // Show success message
       let statusText = status;
       switch(status) {
         case 'DIPROSES':
@@ -173,6 +185,9 @@ export const useOrders = (mitraOnly = false) => {
           break;
         case 'SELESAI':
           statusText = 'Selesai';
+          break;
+        case 'DIBATALKAN':
+          statusText = 'Dibatalkan';
           break;
         default:
           statusText = status;
