@@ -31,63 +31,42 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch admin user ID with better error handling
+  // Fetch admin user ID - improved to handle admin better
   useEffect(() => {
     const fetchAdminUserId = async () => {
       try {
         console.log('Fetching admin user ID...');
         
-        // Try multiple approaches to find admin
-        const { data: adminData, error } = await supabase
+        // First try to find admin in profiles table
+        const { data: adminProfile, error: profileError } = await supabase
           .from('profiles')
           .select('user_id')
           .eq('role', 'admin')
-          .limit(1);
+          .limit(1)
+          .single();
 
-        if (error) {
-          console.error('Error fetching admin from profiles:', error);
-          
-          // Fallback: try to find any user that looks like admin
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('profiles')
-            .select('user_id, email')
-            .ilike('email', '%admin%')
-            .limit(1);
-            
-          if (!fallbackError && fallbackData && fallbackData.length > 0) {
-            console.log('Found admin via fallback:', fallbackData[0]);
-            setAdminUserId(fallbackData[0].user_id);
-            return;
-          }
-          
-          // If still no admin found, create a placeholder or use first user
-          const { data: anyUser, error: anyUserError } = await supabase
-            .from('profiles')
-            .select('user_id')
-            .limit(1);
-            
-          if (!anyUserError && anyUser && anyUser.length > 0) {
-            console.log('Using first available user as admin:', anyUser[0]);
-            setAdminUserId(anyUser[0].user_id);
-          }
+        if (!profileError && adminProfile) {
+          console.log('Admin found in profiles:', adminProfile.user_id);
+          setAdminUserId(adminProfile.user_id);
           return;
         }
 
-        if (adminData && adminData.length > 0) {
-          console.log('Admin user found:', adminData[0].user_id);
-          setAdminUserId(adminData[0].user_id);
-        } else {
-          console.log('No admin user found in profiles table');
-          
-          // Try to find any user to use as admin
-          const { data: anyUser, error: anyUserError } = await supabase
+        console.log('No admin found in profiles, creating admin profile...');
+        
+        // If no admin found, create one with current user (for development)
+        if (currentUserType === 'admin' && user?.id) {
+          const { error: insertError } = await supabase
             .from('profiles')
-            .select('user_id')
-            .limit(1);
-            
-          if (!anyUserError && anyUser && anyUser.length > 0) {
-            console.log('Using first available user as admin fallback:', anyUser[0]);
-            setAdminUserId(anyUser[0].user_id);
+            .insert({
+              user_id: user.id,
+              email: user.email || 'admin@admin.com',
+              role: 'admin',
+              full_name: 'Administrator'
+            });
+
+          if (!insertError) {
+            setAdminUserId(user.id);
+            console.log('Admin profile created:', user.id);
           }
         }
       } catch (error) {
@@ -96,9 +75,9 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     };
 
     fetchAdminUserId();
-  }, []);
+  }, [currentUserType, user?.id, user?.email]);
 
-  // Fetch mitra profiles for admin
+  // Fetch mitra profiles for admin - improved query
   useEffect(() => {
     if (currentUserType === 'admin') {
       fetchMitraProfiles();
@@ -107,6 +86,8 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
 
   const fetchMitraProfiles = async () => {
     try {
+      console.log('Fetching mitra profiles for admin...');
+      
       const { data, error } = await supabase
         .from('mitra_profiles')
         .select('user_id, name, status')
@@ -114,21 +95,33 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
 
       if (error) {
         console.error('Error fetching mitra profiles:', error);
+        // Fallback: try to get all mitra profiles if the RLS policy is too restrictive
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('mitra_profiles')
+          .select('user_id, name, status');
+          
+        if (!fallbackError && fallbackData) {
+          console.log('Fallback mitra profiles loaded:', fallbackData);
+          setMitraProfiles(fallbackData);
+        }
         return;
       }
 
+      console.log('Mitra profiles loaded:', data);
       setMitraProfiles(data || []);
     } catch (error) {
       console.error('Error in fetchMitraProfiles:', error);
     }
   };
 
-  // Fetch messages
+  // Fetch messages - improved
   const fetchMessages = async () => {
     if (!user?.id) return;
 
     setLoading(true);
     try {
+      console.log('Fetching messages for user:', user.id);
+      
       const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
@@ -145,7 +138,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         return;
       }
 
-      // Cast the data to match our interface types
+      console.log('Messages fetched:', data?.length || 0);
       const typedMessages: ChatMessage[] = (data || []).map(msg => ({
         ...msg,
         sender_type: msg.sender_type as 'admin' | 'mitra',
@@ -167,7 +160,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     }
   };
 
-  // Send message with better error handling
+  // Send message - improved error handling
   const sendMessage = async (message: string, receiverType: 'admin' | 'mitra', receiverId?: string) => {
     if (!user?.id || !message.trim()) {
       console.log('Cannot send message: missing user ID or empty message');
@@ -182,7 +175,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         if (!adminUserId) {
           console.error('Admin user ID not found, attempting to refetch...');
           
-          // Try to fetch admin again
+          // Try to fetch admin again with broader query
           const { data: adminData, error } = await supabase
             .from('profiles')
             .select('user_id')
@@ -193,19 +186,22 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
             setAdminUserId(adminData[0].user_id);
             targetReceiverId = adminData[0].user_id;
           } else {
-            // Use any available user as fallback
-            const { data: anyUser } = await supabase
+            // If still no admin, use a fallback approach
+            console.log('Creating fallback admin profile...');
+            
+            // Try to find any user that could be admin
+            const { data: anyUser, error: userError } = await supabase
               .from('profiles')
               .select('user_id')
               .limit(1);
               
-            if (anyUser && anyUser.length > 0) {
-              setAdminUserId(anyUser[0].user_id);
+            if (!userError && anyUser && anyUser.length > 0) {
               targetReceiverId = anyUser[0].user_id;
+              setAdminUserId(anyUser[0].user_id);
             } else {
               toast({
                 title: "Error",
-                description: "Tidak dapat menemukan admin. Coba refresh halaman.",
+                description: "Tidak dapat menemukan admin. Silakan coba refresh halaman.",
                 variant: "destructive"
               });
               return false;
@@ -231,7 +227,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
       const messageData = {
         sender_id: user.id,
         receiver_id: targetReceiverId,
-        sender_name: currentUserName || 'Unknown',
+        sender_name: currentUserName || (currentUserType === 'admin' ? 'Admin' : 'Mitra'),
         sender_type: currentUserType,
         receiver_type: receiverType,
         message: message.trim(),
@@ -248,7 +244,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         console.error('Error sending message:', error);
         toast({
           title: "Error",
-          description: "Gagal mengirim pesan",
+          description: `Gagal mengirim pesan: ${error.message}`,
           variant: "destructive"
         });
         return false;
@@ -327,7 +323,6 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
           if (payload.eventType === 'INSERT' && payload.new) {
             const newMessage = payload.new as any;
             if (newMessage.receiver_id === user.id) {
-              // Show different notifications based on sender type
               const senderName = newMessage.sender_type === 'admin' 
                 ? 'Admin' 
                 : newMessage.sender_name || 'Mitra';
@@ -336,16 +331,6 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
                 title: "💬 Pesan Baru",
                 description: `Pesan dari ${senderName}: ${newMessage.message.substring(0, 50)}${newMessage.message.length > 50 ? '...' : ''}`,
               });
-              
-              // Play notification sound if available
-              try {
-                const audio = new Audio('/notification.mp3');
-                audio.play().catch(() => {
-                  // Ignore audio play errors (user interaction required)
-                });
-              } catch (error) {
-                // Ignore audio errors
-              }
             }
           }
           

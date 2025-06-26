@@ -34,7 +34,6 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const [showInvoice, setShowInvoice] = useState<{orderId: string, totalAmount: number, duration: string} | null>(null);
 
   const HOURLY_RATE = 100000; // Rp 100,000 per jam
-  const RATE_PER_SECOND = HOURLY_RATE / 3600; // Rp per detik
 
   // Timer effect
   useEffect(() => {
@@ -81,11 +80,21 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   }, [orders, user?.id, ordersLoading]);
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
-    // Fix: Use correct status values that match database constraints
+    console.log(`Handle order action: ${action} for order ${orderId}`);
+    
     const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
     const mitraId = action === 'accept' ? user?.id : undefined;
     
-    console.log('Updating order with correct status:', { orderId, newStatus, mitraId });
+    console.log('Updating order with status:', { orderId, newStatus, mitraId, userId: user?.id });
+    
+    if (action === 'accept' && !user?.id) {
+      toast({
+        title: "Error",
+        description: "User ID tidak ditemukan. Silakan logout dan login kembali.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     const success = await updateOrderStatus(orderId, newStatus, mitraId);
     
@@ -101,7 +110,18 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   };
 
   const handleStartWork = async (orderId: string) => {
-    const success = await updateOrderStatus(orderId, 'SEDANG_DIKERJAKAN', user?.id);
+    console.log('Starting work for order:', orderId, 'User ID:', user?.id);
+    
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "User ID tidak ditemukan. Silakan logout dan login kembali.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const success = await updateOrderStatus(orderId, 'SEDANG_DIKERJAKAN', user.id);
     
     if (success) {
       // Start timer
@@ -258,7 +278,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     );
   }
 
-  // Filter orders - fix status values to match database
+  // Filter orders - show available orders and orders assigned to this mitra
   const availableOrders = orders.filter(order => 
     order.status === 'NEW' && !order.mitra_id
   );
@@ -266,6 +286,9 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const myOrders = orders.filter(order => 
     order.mitra_id === user?.id && ['DIPROSES', 'SEDANG_DIKERJAKAN'].includes(order.status)
   );
+
+  console.log('Available orders:', availableOrders);
+  console.log('My orders:', myOrders);
 
   // Status accepted - show full dashboard with tabs
   return (

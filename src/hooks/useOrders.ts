@@ -32,7 +32,7 @@ export const useOrders = (mitraOnly = false) => {
         if (user) {
           console.log('Fetching orders for mitra:', user.id);
           // For mitra: show NEW orders without assignment OR orders assigned to this mitra
-          query = query.or(`and(status.eq.NEW,mitra_id.is.null),and(mitra_id.eq.${user.id},status.in.(DIPROSES,SEDANG_DIKERJAKAN))`);
+          query = query.or(`and(status.eq.NEW,mitra_id.is.null),mitra_id.eq.${user.id}`);
         }
       }
       
@@ -76,13 +76,12 @@ export const useOrders = (mitraOnly = false) => {
         customer_name: orderData.customer_name.trim(),
         customer_address: orderData.customer_address.trim(),
         customer_whatsapp: orderData.customer_whatsapp,
-        service_type: normalizedServiceType, // Use normalized service type
+        service_type: normalizedServiceType,
         status: 'NEW'
       };
 
       console.log('Inserting order data:', insertData);
 
-      // Insert data langsung ke tabel orders
       const { data, error } = await supabase
         .from('orders')
         .insert([insertData])
@@ -106,7 +105,6 @@ export const useOrders = (mitraOnly = false) => {
         description: "Pesanan Anda telah diterima. Mitra akan segera menghubungi Anda.",
       });
 
-      // Refresh orders list
       await fetchOrders();
       return data;
     } catch (error) {
@@ -124,6 +122,18 @@ export const useOrders = (mitraOnly = false) => {
     try {
       console.log('Updating order status:', { orderId, status, mitraId });
       
+      // Get current user for better error handling
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        console.error('No authenticated user found');
+        toast({
+          title: "Error",
+          description: "Anda harus login untuk memperbarui pesanan",
+          variant: "destructive"
+        });
+        return false;
+      }
+
       const updateData: any = { 
         status, 
         updated_at: new Date().toISOString() 
@@ -132,6 +142,8 @@ export const useOrders = (mitraOnly = false) => {
       if (mitraId) {
         updateData.mitra_id = mitraId;
       }
+
+      console.log('Update data being sent:', updateData);
 
       const { error } = await supabase
         .from('orders')
@@ -142,7 +154,7 @@ export const useOrders = (mitraOnly = false) => {
         console.error('Error updating order:', error);
         toast({
           title: "Error",
-          description: "Gagal memperbarui status pesanan",
+          description: `Gagal memperbarui status pesanan: ${error.message}`,
           variant: "destructive"
         });
         return false;
@@ -151,14 +163,34 @@ export const useOrders = (mitraOnly = false) => {
       console.log('Order status updated successfully');
       await fetchOrders();
       
+      let statusText = status;
+      switch(status) {
+        case 'DIPROSES':
+          statusText = 'Diproses';
+          break;
+        case 'SEDANG_DIKERJAKAN':
+          statusText = 'Sedang Dikerjakan';
+          break;
+        case 'SELESAI':
+          statusText = 'Selesai';
+          break;
+        default:
+          statusText = status;
+      }
+      
       toast({
-        title: "Status Updated",
-        description: `Status pesanan berhasil diubah ke ${status}`,
+        title: "Status Berhasil Diperbarui",
+        description: `Status pesanan berhasil diubah ke ${statusText}`,
       });
       
       return true;
     } catch (error) {
       console.error('Error in updateOrderStatus:', error);
+      toast({
+        title: "Error",
+        description: "Terjadi kesalahan saat memperbarui status pesanan",
+        variant: "destructive"
+      });
       return false;
     }
   };
