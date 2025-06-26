@@ -77,10 +77,17 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         return;
       }
 
-      setMessages(data || []);
+      // Cast the data to match our interface types
+      const typedMessages: ChatMessage[] = (data || []).map(msg => ({
+        ...msg,
+        sender_type: msg.sender_type as 'admin' | 'mitra',
+        receiver_type: msg.receiver_type as 'admin' | 'mitra'
+      }));
+
+      setMessages(typedMessages);
       
       // Count unread messages
-      const unread = (data || []).filter(msg => 
+      const unread = typedMessages.filter(msg => 
         msg.receiver_id === user.id && !msg.is_read
       ).length;
       setUnreadCount(unread);
