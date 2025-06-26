@@ -109,8 +109,8 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     try {
       let targetReceiverId = receiverId;
       
-      // If sending to admin, find admin user
-      if (receiverType === 'admin') {
+      // If mitra sending to admin, find admin user
+      if (currentUserType === 'mitra' && receiverType === 'admin') {
         const { data: adminProfile, error: adminError } = await supabase
           .from('profiles')
           .select('user_id')
@@ -229,6 +229,18 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         }, 
         (payload) => {
           console.log('Real-time chat update:', payload);
+          
+          // Show notification for new messages
+          if (payload.eventType === 'INSERT' && payload.new) {
+            const newMessage = payload.new as any;
+            if (newMessage.receiver_id === user.id) {
+              toast({
+                title: "Pesan Baru",
+                description: `Pesan dari ${newMessage.sender_type === 'admin' ? 'Admin' : newMessage.sender_name || 'Mitra'}`,
+              });
+            }
+          }
+          
           fetchMessages();
         }
       )

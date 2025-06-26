@@ -197,10 +197,10 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
                         }`}
                       >
                         {/* Show sender name for received messages */}
-                        {msg.sender_id !== user?.id && msg.sender_name && (
+                        {msg.sender_id !== user?.id && (
                           <div className="text-xs font-semibold mb-1 text-gray-600 flex items-center gap-1">
                             <User className="w-3 h-3" />
-                            {msg.sender_type === 'mitra' ? `${msg.sender_name}` : 'Admin'}
+                            {msg.sender_type === 'admin' ? 'Admin' : (msg.sender_name || 'Mitra')}
                             <span className="w-2 h-2 bg-green-500 rounded-full ml-1"></span>
                           </div>
                         )}
