@@ -32,7 +32,7 @@ export const useOrders = (mitraOnly = false) => {
         if (user) {
           console.log('Fetching orders for mitra:', user.id);
           // For mitra: show NEW orders without assignment OR orders assigned to this mitra
-          query = query.or(`and(status.eq.NEW,mitra_id.is.null),and(mitra_id.eq.${user.id},status.eq.DIPROSES)`);
+          query = query.or(`and(status.eq.NEW,mitra_id.is.null),and(mitra_id.eq.${user.id},status.in.(DIPROSES,SEDANG_DIKERJAKAN))`);
         }
       }
       

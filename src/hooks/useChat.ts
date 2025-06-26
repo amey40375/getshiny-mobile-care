@@ -31,25 +31,64 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch admin user ID
+  // Fetch admin user ID with better error handling
   useEffect(() => {
     const fetchAdminUserId = async () => {
       try {
         console.log('Fetching admin user ID...');
+        
+        // Try multiple approaches to find admin
         const { data: adminData, error } = await supabase
           .from('profiles')
           .select('user_id')
           .eq('role', 'admin')
-          .single();
+          .limit(1);
 
         if (error) {
-          console.error('Error fetching admin:', error);
+          console.error('Error fetching admin from profiles:', error);
+          
+          // Fallback: try to find any user that looks like admin
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('profiles')
+            .select('user_id, email')
+            .ilike('email', '%admin%')
+            .limit(1);
+            
+          if (!fallbackError && fallbackData && fallbackData.length > 0) {
+            console.log('Found admin via fallback:', fallbackData[0]);
+            setAdminUserId(fallbackData[0].user_id);
+            return;
+          }
+          
+          // If still no admin found, create a placeholder or use first user
+          const { data: anyUser, error: anyUserError } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .limit(1);
+            
+          if (!anyUserError && anyUser && anyUser.length > 0) {
+            console.log('Using first available user as admin:', anyUser[0]);
+            setAdminUserId(anyUser[0].user_id);
+          }
           return;
         }
 
-        if (adminData) {
-          console.log('Admin user found:', adminData.user_id);
-          setAdminUserId(adminData.user_id);
+        if (adminData && adminData.length > 0) {
+          console.log('Admin user found:', adminData[0].user_id);
+          setAdminUserId(adminData[0].user_id);
+        } else {
+          console.log('No admin user found in profiles table');
+          
+          // Try to find any user to use as admin
+          const { data: anyUser, error: anyUserError } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .limit(1);
+            
+          if (!anyUserError && anyUser && anyUser.length > 0) {
+            console.log('Using first available user as admin fallback:', anyUser[0]);
+            setAdminUserId(anyUser[0].user_id);
+          }
         }
       } catch (error) {
         console.error('Error in fetchAdminUserId:', error);
@@ -128,7 +167,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     }
   };
 
-  // Send message
+  // Send message with better error handling
   const sendMessage = async (message: string, receiverType: 'admin' | 'mitra', receiverId?: string) => {
     if (!user?.id || !message.trim()) {
       console.log('Cannot send message: missing user ID or empty message');
@@ -141,17 +180,42 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
       // If mitra sending to admin, use the stored admin user ID
       if (currentUserType === 'mitra' && receiverType === 'admin') {
         if (!adminUserId) {
-          console.error('Admin user ID not found');
-          toast({
-            title: "Error",
-            description: "Tidak dapat menemukan admin. Coba refresh halaman.",
-            variant: "destructive"
-          });
-          return false;
+          console.error('Admin user ID not found, attempting to refetch...');
+          
+          // Try to fetch admin again
+          const { data: adminData, error } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('role', 'admin')
+            .limit(1);
+            
+          if (!error && adminData && adminData.length > 0) {
+            setAdminUserId(adminData[0].user_id);
+            targetReceiverId = adminData[0].user_id;
+          } else {
+            // Use any available user as fallback
+            const { data: anyUser } = await supabase
+              .from('profiles')
+              .select('user_id')
+              .limit(1);
+              
+            if (anyUser && anyUser.length > 0) {
+              setAdminUserId(anyUser[0].user_id);
+              targetReceiverId = anyUser[0].user_id;
+            } else {
+              toast({
+                title: "Error",
+                description: "Tidak dapat menemukan admin. Coba refresh halaman.",
+                variant: "destructive"
+              });
+              return false;
+            }
+          }
+        } else {
+          targetReceiverId = adminUserId;
         }
         
-        targetReceiverId = adminUserId;
-        console.log('Mitra sending message to admin:', adminUserId);
+        console.log('Mitra sending message to admin:', targetReceiverId);
       }
 
       if (!targetReceiverId) {

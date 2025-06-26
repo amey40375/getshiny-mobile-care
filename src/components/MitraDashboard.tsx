@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -80,8 +81,11 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   }, [orders, user?.id, ordersLoading]);
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
-    const newStatus = action === 'accept' ? 'DALAM_PERJALANAN' : 'DIBATALKAN';
+    // Fix: Use correct status values that match database constraints
+    const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
     const mitraId = action === 'accept' ? user?.id : undefined;
+    
+    console.log('Updating order with correct status:', { orderId, newStatus, mitraId });
     
     const success = await updateOrderStatus(orderId, newStatus, mitraId);
     
@@ -89,7 +93,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
       toast({
         title: action === 'accept' ? "Pesanan Diterima!" : "Pesanan Ditolak",
         description: action === 'accept' 
-          ? "Status diubah ke Dalam Perjalanan. Silakan menuju lokasi pelanggan" 
+          ? "Status diubah ke Diproses. Silakan menuju lokasi pelanggan" 
           : "Pesanan telah ditolak",
       });
       await handleManualRefresh();
@@ -126,7 +130,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     const hours = duration / (1000 * 60 * 60);
     const totalAmount = Math.ceil(hours * HOURLY_RATE);
     
-    const success = await updateOrderStatus(orderId, 'SELESAI_DIKERJAKAN', user?.id);
+    const success = await updateOrderStatus(orderId, 'SELESAI', user?.id);
     
     if (success) {
       // Stop timer
@@ -254,13 +258,13 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     );
   }
 
-  // Filter orders
+  // Filter orders - fix status values to match database
   const availableOrders = orders.filter(order => 
     order.status === 'NEW' && !order.mitra_id
   );
   
   const myOrders = orders.filter(order => 
-    order.mitra_id === user?.id && ['DALAM_PERJALANAN', 'SEDANG_DIKERJAKAN'].includes(order.status)
+    order.mitra_id === user?.id && ['DIPROSES', 'SEDANG_DIKERJAKAN'].includes(order.status)
   );
 
   // Status accepted - show full dashboard with tabs
@@ -312,7 +316,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
         <div className="max-w-4xl mx-auto">
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <AlertDescription>
-              📋 Alur kerja: Terima pesanan → Dalam Perjalanan → Mulai Bekerja → Timer berjalan → Selesai → Invoice dibuat
+              📋 Alur kerja: Terima pesanan → Diproses → Mulai Bekerja → Timer berjalan → Selesai → Invoice dibuat
             </AlertDescription>
           </Alert>
 
@@ -432,7 +436,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
                               <div className="flex justify-between items-start">
                                 <CardTitle className="text-lg">{order.customer_name}</CardTitle>
                                 <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                  {order.status === 'DALAM_PERJALANAN' ? 'DALAM PERJALANAN' : 
+                                  {order.status === 'DIPROSES' ? 'DIPROSES' : 
                                    order.status === 'SEDANG_DIKERJAKAN' ? 'SEDANG DIKERJAKAN' : order.status}
                                 </Badge>
                               </div>
@@ -483,7 +487,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
                                   
                                   {/* Action Buttons */}
                                   <div className="flex gap-2">
-                                    {order.status === 'DALAM_PERJALANAN' && (
+                                    {order.status === 'DIPROSES' && (
                                       <Button 
                                         onClick={() => handleStartWork(order.id)}
                                         className="flex-1 bg-blue-500 hover:bg-blue-600"
