@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Clock, CheckCircle, XCircle, Phone, MessageCircle, RefreshCw } from "lucide-react";
+import { LogOut, Clock, CheckCircle, XCircle, Phone, MessageCircle, RefreshCw, Truck, Check } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
@@ -13,13 +13,13 @@ import { useAuth } from "@/hooks/useAuth";
 import LiveChat from "@/components/LiveChat";
 
 interface MitraDashboardProps {
-  onBackToUser: () => void;
+  onLogout: () => void;
 }
 
-const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
+const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const { profile, loading: profileLoading } = useMitraProfile();
   const { orders, loading: ordersLoading, updateOrderStatus, refetch } = useOrders(true);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +34,16 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
       title: "Data Diperbarui",
       description: "Pesanan telah dimuat ulang",
     });
+  };
+
+  // Handle logout
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      onLogout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   // Log orders for debugging
@@ -61,6 +71,18 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
     }
   };
 
+  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
+    const success = await updateOrderStatus(orderId, newStatus, user?.id);
+    
+    if (success) {
+      toast({
+        title: "Status Diperbarui",
+        description: `Status pesanan berhasil diubah ke ${newStatus}`,
+      });
+      await handleManualRefresh();
+    }
+  };
+
   const openWhatsApp = (number: string, message: string) => {
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${number}?text=${encodedMessage}`, '_blank');
@@ -83,12 +105,12 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white p-4">
         <div className="max-w-md mx-auto">
           <Button 
-            variant="ghost" 
-            onClick={onBackToUser}
-            className="mb-4"
+            variant="outline" 
+            onClick={handleLogout}
+            className="mb-4 flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Kembali
+            <LogOut className="w-4 h-4" />
+            Logout
           </Button>
           
           <Card className="text-center">
@@ -118,12 +140,12 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-white p-4">
         <div className="max-w-md mx-auto">
           <Button 
-            variant="ghost" 
-            onClick={onBackToUser}
-            className="mb-4"
+            variant="outline" 
+            onClick={handleLogout}
+            className="mb-4 flex items-center gap-2"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Kembali
+            <LogOut className="w-4 h-4" />
+            Logout
           </Button>
           
           <Card className="text-center">
@@ -153,7 +175,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
   );
   
   const myOrders = orders.filter(order => 
-    order.mitra_id === user?.id && order.status === 'DIPROSES'
+    order.mitra_id === user?.id && ['DIPROSES', 'DALAM_PERJALANAN'].includes(order.status)
   );
 
   // Status accepted - show full dashboard with tabs
@@ -163,14 +185,12 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Button 
-              variant="ghost" 
-              onClick={onBackToUser}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali ke User
-            </Button>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
+              <Badge variant="secondary" className="bg-green-100 text-green-800">
+                Aktif - {profile?.name}
+              </Badge>
+            </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setShowChat(true)}
@@ -189,12 +209,14 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Refresh
               </Button>
-              <div className="text-right">
-                <h1 className="text-xl font-bold text-gray-800">Dashboard Mitra</h1>
-                <Badge variant="secondary" className="bg-green-100 text-green-800">
-                  Aktif - {profile?.name}
-                </Badge>
-              </div>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>
@@ -320,7 +342,8 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                             <div className="flex justify-between items-start">
                               <CardTitle className="text-lg">{order.customer_name}</CardTitle>
                               <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                SEDANG DIKERJAKAN
+                                {order.status === 'DIPROSES' ? 'SEDANG DIKERJAKAN' : 
+                                 order.status === 'DALAM_PERJALANAN' ? 'DALAM PERJALANAN' : order.status}
                               </Badge>
                             </div>
                           </CardHeader>
@@ -346,7 +369,7 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                                 <p className="text-gray-800">{new Date(order.updated_at).toLocaleString('id-ID')}</p>
                               </div>
 
-                              <div className="pt-4">
+                              <div className="flex flex-col gap-3 pt-4">
                                 <Button 
                                   onClick={() => openWhatsApp(order.customer_whatsapp, `Halo ${order.customer_name}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service_type} Anda. Kapan waktu yang tepat untuk kami datang?`)}
                                   className="w-full bg-green-500 hover:bg-green-600"
@@ -354,6 +377,30 @@ const MitraDashboard = ({ onBackToUser }: MitraDashboardProps) => {
                                   <Phone className="w-4 h-4 mr-2" />
                                   Hubungi Pelanggan
                                 </Button>
+                                
+                                {/* Status Update Buttons */}
+                                <div className="flex gap-2">
+                                  {order.status === 'DIPROSES' && (
+                                    <Button 
+                                      onClick={() => handleStatusUpdate(order.id, 'DALAM_PERJALANAN')}
+                                      variant="outline"
+                                      className="flex-1"
+                                    >
+                                      <Truck className="w-4 h-4 mr-2" />
+                                      Dalam Perjalanan
+                                    </Button>
+                                  )}
+                                  
+                                  {(order.status === 'DIPROSES' || order.status === 'DALAM_PERJALANAN') && (
+                                    <Button 
+                                      onClick={() => handleStatusUpdate(order.id, 'SELESAI')}
+                                      className="flex-1 bg-blue-500 hover:bg-blue-600"
+                                    >
+                                      <Check className="w-4 h-4 mr-2" />
+                                      Selesai
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </CardContent>

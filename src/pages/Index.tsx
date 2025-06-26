@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,6 +77,11 @@ const Index = () => {
     }, 1000);
   };
 
+  const handleMitraLogout = () => {
+    console.log('Mitra logged out, returning to user page');
+    setShowMitraDashboard(false);
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-white flex items-center justify-center">
@@ -96,7 +100,7 @@ const Index = () => {
 
   // Show Mitra Dashboard if accessing mitra mode
   if (showMitraDashboard && mitraProfile) {
-    return <MitraDashboard onBackToUser={() => setShowMitraDashboard(false)} />;
+    return <MitraDashboard onLogout={handleMitraLogout} />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
