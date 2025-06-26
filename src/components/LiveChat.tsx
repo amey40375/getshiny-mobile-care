@@ -72,10 +72,12 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
       
       if (currentUserType === 'mitra') {
         // Mitra sending to admin
+        console.log('Mitra sending message to admin');
         success = await sendMessage(message, 'admin');
       } else if (currentUserType === 'admin') {
         // Admin sending to selected mitra
         if (selectedMitraId) {
+          console.log('Admin sending message to mitra:', selectedMitraId);
           success = await sendMessage(message, 'mitra', selectedMitraId);
         } else {
           console.log('No mitra selected for admin message');
@@ -102,7 +104,12 @@ const LiveChat = ({ isOpen, onClose, currentUserType, currentUserName }: LiveCha
         (msg.sender_id === selectedMitraId && msg.receiver_id === user?.id) ||
         (msg.sender_id === user?.id && msg.receiver_id === selectedMitraId)
       )
-    : messages;
+    : currentUserType === 'mitra' 
+      ? messages.filter(msg =>
+          (msg.sender_type === 'mitra' && msg.receiver_type === 'admin') ||
+          (msg.sender_type === 'admin' && msg.receiver_type === 'mitra')
+        )
+      : messages;
 
   if (!isOpen) return null;
 

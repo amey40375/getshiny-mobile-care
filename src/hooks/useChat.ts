@@ -1,154 +1,140 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from './useAuth';
+import { useToast } from './use-toast';
 
 interface ChatMessage {
   id: string;
   sender_id: string;
   receiver_id: string;
-  message: string;
+  sender_name?: string;
   sender_type: 'admin' | 'mitra';
   receiver_type: 'admin' | 'mitra';
-  sender_name?: string;
+  message: string;
   is_read: boolean;
   created_at: string;
 }
 
+interface MitraProfile {
+  user_id: string;
+  name: string;
+  status: string;
+}
+
 export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: string) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [mitraProfiles, setMitraProfiles] = useState<any[]>([]);
+  const [mitraProfiles, setMitraProfiles] = useState<MitraProfile[]>([]);
+  const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch mitra profiles for admin view
-  const fetchMitraProfiles = useCallback(async () => {
+  // Fetch mitra profiles for admin
+  useEffect(() => {
     if (currentUserType === 'admin') {
-      try {
-        const { data, error } = await supabase
-          .from('mitra_profiles')
-          .select('*')
-          .eq('status', 'accepted');
-        
-        if (!error && data) {
-          setMitraProfiles(data);
-        }
-      } catch (error) {
-        console.error('Error fetching mitra profiles:', error);
-      }
+      fetchMitraProfiles();
     }
   }, [currentUserType]);
 
-  const fetchMessages = useCallback(async () => {
+  const fetchMitraProfiles = async () => {
     try {
-      console.log('Fetching chat messages...', { currentUserType, currentUserName });
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        console.log('No authenticated user found');
-        setLoading(false);
+      const { data, error } = await supabase
+        .from('mitra_profiles')
+        .select('user_id, name, status')
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.error('Error fetching mitra profiles:', error);
         return;
       }
 
-      let query = supabase
+      setMitraProfiles(data || []);
+    } catch (error) {
+      console.error('Error in fetchMitraProfiles:', error);
+    }
+  };
+
+  // Fetch messages
+  const fetchMessages = async () => {
+    if (!user?.id) return;
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
         .from('chat_messages')
         .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: true });
-
-      // For mitra: show only their conversation with admin
-      if (currentUserType === 'mitra') {
-        query = query.or(`and(sender_id.eq.${user.id},receiver_type.eq.admin),and(receiver_id.eq.${user.id},sender_type.eq.admin)`);
-      } else {
-        // For admin: show all conversations
-        query = query.or(`sender_type.eq.admin,receiver_type.eq.admin,sender_type.eq.mitra,receiver_type.eq.mitra`);
-      }
-
-      const { data, error } = await query;
 
       if (error) {
         console.error('Error fetching messages:', error);
         toast({
           title: "Error",
-          description: "Gagal memuat pesan chat",
+          description: "Gagal memuat pesan",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('Messages fetched successfully:', data);
+      setMessages(data || []);
       
-      const typedMessages = (data || []).map(msg => ({
-        ...msg,
-        sender_type: msg.sender_type as 'admin' | 'mitra',
-        receiver_type: msg.receiver_type as 'admin' | 'mitra'
-      })) as ChatMessage[];
-      
-      setMessages(typedMessages);
-      
-      // Count unread messages for current user
-      const unread = typedMessages.filter(msg => 
+      // Count unread messages
+      const unread = (data || []).filter(msg => 
         msg.receiver_id === user.id && !msg.is_read
       ).length;
       setUnreadCount(unread);
-      
+
     } catch (error) {
       console.error('Error in fetchMessages:', error);
     } finally {
       setLoading(false);
     }
-  }, [currentUserType, currentUserName, toast]);
+  };
 
-  const sendMessage = async (message: string, receiverType: 'admin' | 'mitra' = 'admin', specificReceiverId?: string) => {
+  // Send message
+  const sendMessage = async (message: string, receiverType: 'admin' | 'mitra', receiverId?: string) => {
+    if (!user?.id || !message.trim()) {
+      console.log('Cannot send message: missing user ID or empty message');
+      return false;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      let targetReceiverId = receiverId;
       
-      if (!user) {
-        toast({
-          title: "Error",
-          description: "Anda harus login untuk mengirim pesan",
-          variant: "destructive"
-        });
-        return false;
-      }
-
-      // Determine receiver ID based on context
-      let actualReceiverId = specificReceiverId || user.id;
-      
-      if (currentUserType === 'mitra' && receiverType === 'admin') {
-        // Mitra sending to admin - use a default admin ID or get first admin
-        const { data: adminUsers } = await supabase
+      // If sending to admin, find admin user
+      if (receiverType === 'admin') {
+        const { data: adminProfile, error: adminError } = await supabase
           .from('profiles')
           .select('user_id')
           .eq('role', 'admin')
-          .limit(1);
-        
-        if (adminUsers && adminUsers.length > 0) {
-          actualReceiverId = adminUsers[0].user_id;
-        } else {
-          // Fallback: use a known admin user ID
-          actualReceiverId = 'admin-default-id';
-        }
-      } else if (currentUserType === 'admin' && receiverType === 'mitra') {
-        // Admin replying to mitra - use specificReceiverId if provided
-        if (!specificReceiverId) {
+          .single();
+
+        if (adminError || !adminProfile) {
+          console.error('Error finding admin:', adminError);
           toast({
-            title: "Error", 
-            description: "Pilih mitra untuk membalas pesan",
+            title: "Error",
+            description: "Tidak dapat menemukan admin",
             variant: "destructive"
           });
           return false;
         }
-        actualReceiverId = specificReceiverId;
+        
+        targetReceiverId = adminProfile.user_id;
+      }
+
+      if (!targetReceiverId) {
+        console.log('No target receiver ID specified');
+        return false;
       }
 
       const messageData = {
         sender_id: user.id,
-        receiver_id: actualReceiverId, 
-        message: message.trim(),
+        receiver_id: targetReceiverId,
+        sender_name: currentUserName || 'Unknown',
         sender_type: currentUserType,
         receiver_type: receiverType,
-        sender_name: currentUserName || (currentUserType === 'admin' ? 'Admin' : 'Mitra'),
+        message: message.trim(),
         is_read: false
       };
 
@@ -162,14 +148,22 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
         console.error('Error sending message:', error);
         toast({
           title: "Error",
-          description: `Gagal mengirim pesan: ${error.message}`,
+          description: "Gagal mengirim pesan",
           variant: "destructive"
         });
         return false;
       }
 
       console.log('Message sent successfully');
-      await fetchMessages(); // Refresh messages after sending
+      
+      // Refresh messages after sending
+      await fetchMessages();
+      
+      toast({
+        title: "Pesan Terkirim",
+        description: "Pesan berhasil dikirim",
+      });
+
       return true;
     } catch (error) {
       console.error('Error in sendMessage:', error);
@@ -182,7 +176,10 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     }
   };
 
+  // Mark messages as read
   const markAsRead = async (messageIds: string[]) => {
+    if (messageIds.length === 0) return;
+
     try {
       const { error } = await supabase
         .from('chat_messages')
@@ -191,35 +188,49 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
 
       if (error) {
         console.error('Error marking messages as read:', error);
-      } else {
-        console.log('Messages marked as read:', messageIds);
+        return;
       }
+
+      // Update local state
+      setMessages(prev => 
+        prev.map(msg => 
+          messageIds.includes(msg.id) ? { ...msg, is_read: true } : msg
+        )
+      );
+      
+      // Update unread count
+      setUnreadCount(prev => Math.max(0, prev - messageIds.length));
+
     } catch (error) {
       console.error('Error in markAsRead:', error);
     }
   };
 
+  // Set up real-time subscription
   useEffect(() => {
-    fetchMessages();
-    fetchMitraProfiles();
+    if (!user?.id) return;
 
-    // Set up real-time subscription
-    const channel = supabase
-      .channel('chat-messages')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'chat_messages'
-      }, (payload) => {
-        console.log('Real-time chat update:', payload);
-        fetchMessages();
-      })
+    fetchMessages();
+
+    const subscription = supabase
+      .channel('chat_messages')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'chat_messages'
+        }, 
+        (payload) => {
+          console.log('Real-time chat update:', payload);
+          fetchMessages();
+        }
+      )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
     };
-  }, [fetchMessages, fetchMitraProfiles]);
+  }, [user?.id]);
 
   return {
     messages,

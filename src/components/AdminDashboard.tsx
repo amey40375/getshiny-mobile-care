@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle, UserCheck } from "lucide-react";
+import { ArrowLeft, Users, ShoppingCart, Settings, BarChart3, MessageCircle, CheckCircle, XCircle, UserCheck, LogOut } from "lucide-react";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
-import { useProfile } from "@/hooks/useProfile";
+import { useServices } from "@/hooks/useServices";
 import LiveChat from "@/components/LiveChat";
 
 interface AdminDashboardProps {
@@ -21,7 +21,7 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
   const [showChat, setShowChat] = useState(false);
   const { getAllProfiles, updateProfileStatus } = useMitraProfile();
   const { orders, updateOrderStatus } = useOrders();
-  const { profile, isAdmin } = useProfile();
+  const { services } = useServices();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -86,6 +86,11 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
     }
   };
 
+  const handleLogout = () => {
+    console.log('Admin logout, returning to user page');
+    onBackToUser();
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-yellow-100 text-yellow-800';
@@ -99,26 +104,6 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
     }
   };
 
-  // Check if user is admin
-  if (!isAdmin()) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-white flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardContent className="p-8 text-center">
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-4">Akses Ditolak</h2>
-            <p className="text-gray-600 mb-6">
-              Anda tidak memiliki akses administrator. Hanya admin yang dapat mengakses halaman ini.
-            </p>
-            <Button onClick={onBackToUser} className="w-full">
-              Kembali ke Halaman Utama
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   const acceptedMitra = mitraApplications.filter(app => app.status === 'accepted');
 
   return (
@@ -127,14 +112,12 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
       <div className="bg-white shadow-sm border-b">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Button 
-              variant="ghost" 
-              onClick={onBackToUser}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Kembali ke User
-            </Button>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
+              <Badge variant="secondary" className="bg-red-100 text-red-800">
+                Admin Mode
+              </Badge>
+            </div>
             <div className="flex items-center gap-3">
               <Button
                 onClick={() => setShowChat(true)}
@@ -144,10 +127,14 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                 <MessageCircle className="w-4 h-4" />
                 Live Chat
               </Button>
-              <div className="text-right">
-                <h1 className="text-xl font-bold text-gray-800">Admin Dashboard</h1>
-                <p className="text-sm text-gray-600">GetShiny Management - {profile?.full_name || profile?.email}</p>
-              </div>
+              <Button 
+                onClick={handleLogout}
+                variant="outline"
+                className="flex items-center gap-2 text-red-600 border-red-200 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout Admin
+              </Button>
             </div>
           </div>
         </div>
@@ -398,27 +385,15 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      <div className="flex justify-between items-center p-3 border rounded">
-                        <div>
-                          <p className="font-medium">Cleaning</p>
-                          <p className="text-sm text-gray-600">Rp 150.000</p>
+                      {services.map((service) => (
+                        <div key={service.id} className="flex justify-between items-center p-3 border rounded">
+                          <div>
+                            <p className="font-medium">{service.service_name}</p>
+                            <p className="text-sm text-gray-600">Rp {parseInt(service.price).toLocaleString()}</p>
+                          </div>
+                          <Button variant="outline" size="sm">Edit</Button>
                         </div>
-                        <Button variant="outline" size="sm">Edit</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-3 border rounded">
-                        <div>
-                          <p className="font-medium">Laundry</p>
-                          <p className="text-sm text-gray-600">Rp 25.000/kg</p>
-                        </div>
-                        <Button variant="outline" size="sm">Edit</Button>
-                      </div>
-                      <div className="flex justify-between items-center p-3 border rounded">
-                        <div>
-                          <p className="font-medium">Beberes Rumah</p>
-                          <p className="text-sm text-gray-600">Rp 200.000</p>
-                        </div>
-                        <Button variant="outline" size="sm">Edit</Button>
-                      </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
@@ -465,7 +440,7 @@ const AdminDashboard = ({ onBackToUser }: AdminDashboardProps) => {
         isOpen={showChat}
         onClose={() => setShowChat(false)}
         currentUserType="admin"
-        currentUserName={profile?.full_name || 'Admin'}
+        currentUserName="Admin"
       />
     </div>
   );
