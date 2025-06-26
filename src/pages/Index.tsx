@@ -37,15 +37,27 @@ const Index = () => {
 
   const { user, loading: authLoading } = useAuth();
   const { profile } = useProfile();
-  const { profile: mitraProfile } = useMitraProfile();
+  const { profile: mitraProfile, refetch: refetchMitraProfile } = useMitraProfile();
   const { services } = useServices();
   const { createOrder } = useOrders();
   const { toast } = useToast();
+
+  // Check mitra status and redirect if needed
+  useEffect(() => {
+    if (user && mitraProfile) {
+      console.log('Checking mitra profile status:', mitraProfile.status);
+      if (mitraProfile.status === 'accepted' && !showAdminDashboard) {
+        console.log('Mitra profile is accepted, redirecting to dashboard');
+        setShowMitraDashboard(true);
+      }
+    }
+  }, [user, mitraProfile, showAdminDashboard]);
 
   const handleAdminPinLogin = () => {
     console.log('Admin PIN login successful, redirecting to admin dashboard');
     setShowAdminPinLogin(false);
     setShowAdminDashboard(true);
+    setShowMitraDashboard(false);
   };
 
   const handleMitraAccess = () => {
@@ -58,23 +70,37 @@ const Index = () => {
     }
   };
 
-  const handleMitraLoginSuccess = () => {
+  const handleMitraLoginSuccess = async () => {
     console.log('Mitra login successful, checking profile status...');
     setShowLoginModal(false);
     
+    // Refetch mitra profile to get latest status
+    await refetchMitraProfile();
+    
     // Small delay to ensure profile data is loaded
-    setTimeout(() => {
+    setTimeout(async () => {
+      // Refetch again to make sure we have the latest data
+      await refetchMitraProfile();
+      
       if (mitraProfile && mitraProfile.status === 'accepted') {
         console.log('Mitra profile is accepted, redirecting to dashboard');
         setShowMitraDashboard(true);
       } else {
-        console.log('Mitra profile not accepted yet, staying on user page');
-        toast({
-          title: "Login Berhasil",
-          description: "Silakan tunggu konfirmasi dari admin untuk mengakses dashboard mitra",
-        });
+        console.log('Mitra profile status:', mitraProfile?.status);
+        if (mitraProfile?.status === 'pending') {
+          toast({
+            title: "Login Berhasil",
+            description: "Silakan tunggu konfirmasi dari admin untuk mengakses dashboard mitra",
+          });
+        } else if (mitraProfile?.status === 'rejected') {
+          toast({
+            title: "Akses Ditolak",
+            description: "Pendaftaran mitra Anda telah ditolak. Silakan hubungi admin.",
+            variant: "destructive"
+          });
+        }
       }
-    }, 1000);
+    }, 1500);
   };
 
   const handleMitraLogout = () => {
@@ -99,7 +125,7 @@ const Index = () => {
   }
 
   // Show Mitra Dashboard if accessing mitra mode
-  if (showMitraDashboard && mitraProfile) {
+  if (showMitraDashboard && mitraProfile && mitraProfile.status === 'accepted') {
     return <MitraDashboard onLogout={handleMitraLogout} />;
   }
 

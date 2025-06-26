@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useMitraProfile } from "@/hooks/useMitraProfile";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, onRegisterClick }: LoginM
   const [loginData, setLoginData] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
+  const { refetch: refetchMitraProfile } = useMitraProfile();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,6 +43,10 @@ const LoginModal = ({ isOpen, onClose, onLoginSuccess, onRegisterClick }: LoginM
       
       if (!error) {
         console.log('Login successful');
+        
+        // Refetch mitra profile immediately after login
+        await refetchMitraProfile();
+        
         toast({
           title: "Login Berhasil!",
           description: "Selamat datang di dashboard mitra",
