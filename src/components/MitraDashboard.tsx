@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, CheckCircle, XCircle, Phone, MessageCircle, RefreshCw, Truck, Check } from "lucide-react";
+import { LogOut, Clock, CheckCircle, XCircle, Phone, MessageCircle, RefreshCw, Truck, Check, Play, Timer } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useMitraProfile } from "@/hooks/useMitraProfile";
 import { useOrders } from "@/hooks/useOrders";
@@ -16,6 +15,13 @@ interface MitraDashboardProps {
   onLogout: () => void;
 }
 
+interface WorkSession {
+  orderId: string;
+  startTime: number;
+  currentTime: number;
+  isRunning: boolean;
+}
+
 const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const { profile, loading: profileLoading } = useMitraProfile();
   const { orders, loading: ordersLoading, updateOrderStatus, refetch } = useOrders(true);
@@ -23,6 +29,26 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   const { toast } = useToast();
   const [showChat, setShowChat] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [workSessions, setWorkSessions] = useState<WorkSession[]>([]);
+  const [showInvoice, setShowInvoice] = useState<{orderId: string, totalAmount: number, duration: string} | null>(null);
+
+  const HOURLY_RATE = 100000; // Rp 100,000 per jam
+  const RATE_PER_SECOND = HOURLY_RATE / 3600; // Rp per detik
+
+  // Timer effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setWorkSessions(prev => 
+        prev.map(session => 
+          session.isRunning 
+            ? { ...session, currentTime: Date.now() }
+            : session
+        )
+      );
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -54,7 +80,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
   }, [orders, user?.id, ordersLoading]);
 
   const handleOrderAction = async (orderId: string, action: 'accept' | 'reject') => {
-    const newStatus = action === 'accept' ? 'DIPROSES' : 'DIBATALKAN';
+    const newStatus = action === 'accept' ? 'DALAM_PERJALANAN' : 'DIBATALKAN';
     const mitraId = action === 'accept' ? user?.id : undefined;
     
     const success = await updateOrderStatus(orderId, newStatus, mitraId);
@@ -63,24 +89,85 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
       toast({
         title: action === 'accept' ? "Pesanan Diterima!" : "Pesanan Ditolak",
         description: action === 'accept' 
-          ? "Silakan hubungi pelanggan segera" 
+          ? "Status diubah ke Dalam Perjalanan. Silakan menuju lokasi pelanggan" 
           : "Pesanan telah ditolak",
       });
-      // Refresh data after action
       await handleManualRefresh();
     }
   };
 
-  const handleStatusUpdate = async (orderId: string, newStatus: string) => {
-    const success = await updateOrderStatus(orderId, newStatus, user?.id);
+  const handleStartWork = async (orderId: string) => {
+    const success = await updateOrderStatus(orderId, 'SEDANG_DIKERJAKAN', user?.id);
     
     if (success) {
+      // Start timer
+      const newSession: WorkSession = {
+        orderId,
+        startTime: Date.now(),
+        currentTime: Date.now(),
+        isRunning: true
+      };
+      
+      setWorkSessions(prev => [...prev.filter(s => s.orderId !== orderId), newSession]);
+      
       toast({
-        title: "Status Diperbarui",
-        description: `Status pesanan berhasil diubah ke ${newStatus}`,
+        title: "Mulai Bekerja",
+        description: "Timer dimulai. Selamat bekerja!",
       });
       await handleManualRefresh();
     }
+  };
+
+  const handleFinishWork = async (orderId: string) => {
+    const session = workSessions.find(s => s.orderId === orderId);
+    if (!session) return;
+
+    const duration = session.currentTime - session.startTime;
+    const hours = duration / (1000 * 60 * 60);
+    const totalAmount = Math.ceil(hours * HOURLY_RATE);
+    
+    const success = await updateOrderStatus(orderId, 'SELESAI_DIKERJAKAN', user?.id);
+    
+    if (success) {
+      // Stop timer
+      setWorkSessions(prev => 
+        prev.map(s => 
+          s.orderId === orderId 
+            ? { ...s, isRunning: false }
+            : s
+        )
+      );
+
+      // Show invoice
+      const durationText = formatDuration(duration);
+      setShowInvoice({
+        orderId,
+        totalAmount,
+        duration: durationText
+      });
+      
+      toast({
+        title: "Pekerjaan Selesai!",
+        description: "Timer dihentikan dan invoice telah dibuat",
+      });
+      await handleManualRefresh();
+    }
+  };
+
+  const formatDuration = (milliseconds: number) => {
+    const seconds = Math.floor(milliseconds / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    
+    return `${hours}j ${minutes % 60}m ${seconds % 60}d`;
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0
+    }).format(amount);
   };
 
   const openWhatsApp = (number: string, message: string) => {
@@ -99,7 +186,6 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     );
   }
 
-  // Status pending - show waiting message
   if (!profile || profile.status === 'pending') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white p-4">
@@ -134,7 +220,6 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     );
   }
 
-  // Status rejected - show rejection message
   if (profile.status === 'rejected') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 to-white p-4">
@@ -169,13 +254,13 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
     );
   }
 
-  // Filter orders: NEW orders (not assigned) and orders assigned to this mitra
+  // Filter orders
   const availableOrders = orders.filter(order => 
     order.status === 'NEW' && !order.mitra_id
   );
   
   const myOrders = orders.filter(order => 
-    order.mitra_id === user?.id && ['DIPROSES', 'DALAM_PERJALANAN'].includes(order.status)
+    order.mitra_id === user?.id && ['DALAM_PERJALANAN', 'SEDANG_DIKERJAKAN'].includes(order.status)
   );
 
   // Status accepted - show full dashboard with tabs
@@ -227,7 +312,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
         <div className="max-w-4xl mx-auto">
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <AlertDescription>
-              📋 Gunakan tombol "Refresh" untuk memuat pesanan terbaru. Tab "Pesanan Tersedia" menampilkan pesanan baru yang belum di-assign, dan "Pesanan Saya" menampilkan pesanan yang sedang Anda kerjakan.
+              📋 Alur kerja: Terima pesanan → Dalam Perjalanan → Mulai Bekerja → Timer berjalan → Selesai → Invoice dibuat
             </AlertDescription>
           </Alert>
 
@@ -245,7 +330,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
             <TabsContent value="available">
               <Card>
                 <CardHeader>
-                  <CardTitle>Pesanan Tersedia (Belum Di-Assign)</CardTitle>
+                  <CardTitle>Pesanan Tersedia</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {ordersLoading ? (
@@ -255,7 +340,7 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
                     </div>
                   ) : availableOrders.length === 0 ? (
                     <div className="text-center py-8">
-                      <p className="text-gray-500">Belum ada pesanan tersedia yang belum di-assign admin</p>
+                      <p className="text-gray-500">Belum ada pesanan tersedia</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -336,76 +421,94 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {myOrders.map((order) => (
-                        <Card key={order.id} className="hover:shadow-lg transition-shadow border-green-200">
-                          <CardHeader>
-                            <div className="flex justify-between items-start">
-                              <CardTitle className="text-lg">{order.customer_name}</CardTitle>
-                              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                                {order.status === 'DIPROSES' ? 'SEDANG DIKERJAKAN' : 
-                                 order.status === 'DALAM_PERJALANAN' ? 'DALAM PERJALANAN' : order.status}
-                              </Badge>
-                            </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              <div>
-                                <p className="text-sm font-medium text-gray-600">Alamat:</p>
-                                <p className="text-gray-800">{order.customer_address}</p>
+                      {myOrders.map((order) => {
+                        const workSession = workSessions.find(s => s.orderId === order.id);
+                        const duration = workSession ? workSession.currentTime - workSession.startTime : 0;
+                        const currentCost = Math.ceil((duration / (1000 * 60 * 60)) * HOURLY_RATE);
+                        
+                        return (
+                          <Card key={order.id} className="hover:shadow-lg transition-shadow border-green-200">
+                            <CardHeader>
+                              <div className="flex justify-between items-start">
+                                <CardTitle className="text-lg">{order.customer_name}</CardTitle>
+                                <Badge variant="secondary" className="bg-green-100 text-green-800">
+                                  {order.status === 'DALAM_PERJALANAN' ? 'DALAM PERJALANAN' : 
+                                   order.status === 'SEDANG_DIKERJAKAN' ? 'SEDANG DIKERJAKAN' : order.status}
+                                </Badge>
                               </div>
-                              
-                              <div>
-                                <p className="text-sm font-medium text-gray-600">Layanan:</p>
-                                <p className="text-gray-800">{order.service_type}</p>
-                              </div>
-                              
-                              <div>
-                                <p className="text-sm font-medium text-gray-600">WhatsApp:</p>
-                                <p className="text-gray-800">{order.customer_whatsapp}</p>
-                              </div>
-                              
-                              <div>
-                                <p className="text-sm font-medium text-gray-600">Waktu Diterima:</p>
-                                <p className="text-gray-800">{new Date(order.updated_at).toLocaleString('id-ID')}</p>
-                              </div>
-
-                              <div className="flex flex-col gap-3 pt-4">
-                                <Button 
-                                  onClick={() => openWhatsApp(order.customer_whatsapp, `Halo ${order.customer_name}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service_type} Anda. Kapan waktu yang tepat untuk kami datang?`)}
-                                  className="w-full bg-green-500 hover:bg-green-600"
-                                >
-                                  <Phone className="w-4 h-4 mr-2" />
-                                  Hubungi Pelanggan
-                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                              <div className="space-y-3">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">Alamat:</p>
+                                  <p className="text-gray-800">{order.customer_address}</p>
+                                </div>
                                 
-                                {/* Status Update Buttons */}
-                                <div className="flex gap-2">
-                                  {order.status === 'DIPROSES' && (
-                                    <Button 
-                                      onClick={() => handleStatusUpdate(order.id, 'DALAM_PERJALANAN')}
-                                      variant="outline"
-                                      className="flex-1"
-                                    >
-                                      <Truck className="w-4 h-4 mr-2" />
-                                      Dalam Perjalanan
-                                    </Button>
-                                  )}
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">Layanan:</p>
+                                  <p className="text-gray-800">{order.service_type}</p>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">WhatsApp:</p>
+                                  <p className="text-gray-800">{order.customer_whatsapp}</p>
+                                </div>
+
+                                {/* Timer Display */}
+                                {workSession && order.status === 'SEDANG_DIKERJAKAN' && (
+                                  <div className="bg-blue-50 p-4 rounded-lg">
+                                    <div className="flex items-center justify-center mb-2">
+                                      <Timer className="w-6 h-6 text-blue-600 mr-2" />
+                                      <span className="text-2xl font-bold text-blue-600">
+                                        {formatDuration(duration)}
+                                      </span>
+                                    </div>
+                                    <p className="text-center text-lg font-semibold text-green-600">
+                                      Biaya saat ini: {formatCurrency(currentCost)}
+                                    </p>
+                                    <p className="text-center text-sm text-gray-600">
+                                      Tarif: {formatCurrency(HOURLY_RATE)}/jam
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div className="flex flex-col gap-3 pt-4">
+                                  <Button 
+                                    onClick={() => openWhatsApp(order.customer_whatsapp, `Halo ${order.customer_name}, saya mitra GetShiny yang akan mengerjakan pesanan ${order.service_type} Anda.`)}
+                                    className="w-full bg-green-500 hover:bg-green-600"
+                                  >
+                                    <Phone className="w-4 h-4 mr-2" />
+                                    Hubungi Pelanggan
+                                  </Button>
                                   
-                                  {(order.status === 'DIPROSES' || order.status === 'DALAM_PERJALANAN') && (
-                                    <Button 
-                                      onClick={() => handleStatusUpdate(order.id, 'SELESAI')}
-                                      className="flex-1 bg-blue-500 hover:bg-blue-600"
-                                    >
-                                      <Check className="w-4 h-4 mr-2" />
-                                      Selesai
-                                    </Button>
-                                  )}
+                                  {/* Action Buttons */}
+                                  <div className="flex gap-2">
+                                    {order.status === 'DALAM_PERJALANAN' && (
+                                      <Button 
+                                        onClick={() => handleStartWork(order.id)}
+                                        className="flex-1 bg-blue-500 hover:bg-blue-600"
+                                      >
+                                        <Play className="w-4 h-4 mr-2" />
+                                        Mulai Bekerja
+                                      </Button>
+                                    )}
+                                    
+                                    {order.status === 'SEDANG_DIKERJAKAN' && (
+                                      <Button 
+                                        onClick={() => handleFinishWork(order.id)}
+                                        className="flex-1 bg-purple-500 hover:bg-purple-600"
+                                      >
+                                        <Check className="w-4 h-4 mr-2" />
+                                        Selesai
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
@@ -415,14 +518,53 @@ const MitraDashboard = ({ onLogout }: MitraDashboardProps) => {
         </div>
       </div>
 
+      {/* Invoice Modal */}
+      {showInvoice && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <Card className="w-full max-w-md">
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl text-green-600">Invoice Pembayaran</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Order ID</p>
+                <p className="font-mono text-xs">{showInvoice.orderId}</p>
+              </div>
+              
+              <div className="text-center">
+                <p className="text-sm text-gray-600">Durasi Pekerjaan</p>
+                <p className="text-lg font-semibold">{showInvoice.duration}</p>
+              </div>
+              
+              <div className="text-center bg-green-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Total Biaya</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {formatCurrency(showInvoice.totalAmount)}
+                </p>
+              </div>
+              
+              <div className="text-center text-xs text-gray-500">
+                <p>Tarif: {formatCurrency(HOURLY_RATE)}/jam</p>
+                <p>Pembayaran akan diselesaikan dengan pelanggan</p>
+              </div>
+              
+              <Button 
+                onClick={() => setShowInvoice(null)}
+                className="w-full"
+              >
+                Tutup
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Live Chat Component */}
       <LiveChat
         isOpen={showChat}
         onClose={() => setShowChat(false)}
         currentUserType="mitra"
         currentUserName={profile?.name}
-        receiverId="admin"
-        receiverType="admin"
       />
     </div>
   );

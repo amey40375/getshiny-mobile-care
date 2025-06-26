@@ -27,8 +27,37 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [mitraProfiles, setMitraProfiles] = useState<MitraProfile[]>([]);
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Fetch admin user ID
+  useEffect(() => {
+    const fetchAdminUserId = async () => {
+      try {
+        console.log('Fetching admin user ID...');
+        const { data: adminData, error } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('role', 'admin')
+          .single();
+
+        if (error) {
+          console.error('Error fetching admin:', error);
+          return;
+        }
+
+        if (adminData) {
+          console.log('Admin user found:', adminData.user_id);
+          setAdminUserId(adminData.user_id);
+        }
+      } catch (error) {
+        console.error('Error in fetchAdminUserId:', error);
+      }
+    };
+
+    fetchAdminUserId();
+  }, []);
 
   // Fetch mitra profiles for admin
   useEffect(() => {
@@ -109,29 +138,29 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     try {
       let targetReceiverId = receiverId;
       
-      // If mitra sending to admin, find admin user
+      // If mitra sending to admin, use the stored admin user ID
       if (currentUserType === 'mitra' && receiverType === 'admin') {
-        const { data: adminProfile, error: adminError } = await supabase
-          .from('profiles')
-          .select('user_id')
-          .eq('role', 'admin')
-          .single();
-
-        if (adminError || !adminProfile) {
-          console.error('Error finding admin:', adminError);
+        if (!adminUserId) {
+          console.error('Admin user ID not found');
           toast({
             title: "Error",
-            description: "Tidak dapat menemukan admin",
+            description: "Tidak dapat menemukan admin. Coba refresh halaman.",
             variant: "destructive"
           });
           return false;
         }
         
-        targetReceiverId = adminProfile.user_id;
+        targetReceiverId = adminUserId;
+        console.log('Mitra sending message to admin:', adminUserId);
       }
 
       if (!targetReceiverId) {
         console.log('No target receiver ID specified');
+        toast({
+          title: "Error",
+          description: "Target penerima pesan tidak valid",
+          variant: "destructive"
+        });
         return false;
       }
 
@@ -168,7 +197,7 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
       
       toast({
         title: "Pesan Terkirim",
-        description: "Pesan berhasil dikirim",
+        description: "Pesan berhasil dikirim ke " + (receiverType === 'admin' ? 'Admin' : 'Mitra'),
       });
 
       return true;
@@ -234,10 +263,25 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
           if (payload.eventType === 'INSERT' && payload.new) {
             const newMessage = payload.new as any;
             if (newMessage.receiver_id === user.id) {
+              // Show different notifications based on sender type
+              const senderName = newMessage.sender_type === 'admin' 
+                ? 'Admin' 
+                : newMessage.sender_name || 'Mitra';
+              
               toast({
-                title: "Pesan Baru",
-                description: `Pesan dari ${newMessage.sender_type === 'admin' ? 'Admin' : newMessage.sender_name || 'Mitra'}`,
+                title: "💬 Pesan Baru",
+                description: `Pesan dari ${senderName}: ${newMessage.message.substring(0, 50)}${newMessage.message.length > 50 ? '...' : ''}`,
               });
+              
+              // Play notification sound if available
+              try {
+                const audio = new Audio('/notification.mp3');
+                audio.play().catch(() => {
+                  // Ignore audio play errors (user interaction required)
+                });
+              } catch (error) {
+                // Ignore audio errors
+              }
             }
           }
           
@@ -249,13 +293,14 @@ export const useChat = (currentUserType: 'admin' | 'mitra', currentUserName?: st
     return () => {
       subscription.unsubscribe();
     };
-  }, [user?.id]);
+  }, [user?.id, adminUserId]);
 
   return {
     messages,
     loading,
     unreadCount,
     mitraProfiles,
+    adminUserId,
     sendMessage,
     markAsRead,
     refetch: fetchMessages
